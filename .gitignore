@@ -1,0 +1,14 @@
+node_modules/
+dist/
+release/
+build/*
+!build/.gitkeep
+*.log
+npm-debug.log*
+
+# Claude Code local session/config — machine-specific, not app source
+.claude/
+
+# OS cruft
+Thumbs.db
+.DS_Store
