@@ -733,10 +733,29 @@ function bootStage(name, state) {
   el.classList.toggle('active', state === 'active');
   if (state === 'done') el.classList.add('done');
 }
-function bootProgress(pct) { bootBarFillEl.style.width = pct + '%'; }
+
+// Прогресс: границы отрезков — честные точки завершения этапов, а внутри
+// отрезка полоска асимптотически ползёт к потолку, пока этап реально идёт
+// (движение = работа; настоящая длительность этапов VK заранее неизвестна,
+// поэтому «проценты внутри этапа» иначе не измерить). Достигнуть потолка
+// полоска может только фактическим завершением этапа — bootPhase ставит
+// floor мгновенно.
+let bootPct = 0;
+let bootCeil = 0;
+const bootTicker = setInterval(() => {
+  bootPct += (bootCeil - bootPct) * 0.055; // полпути к потолку за ~1.2с, дальше медленнее
+  bootBarFillEl.style.width = bootPct + '%';
+}, 100);
+function bootPhase(floor, ceil) {
+  bootPct = Math.max(bootPct, floor);
+  bootCeil = ceil;
+  bootBarFillEl.style.width = bootPct + '%';
+}
 
 function finishBoot() {
   if (bootSplashEl.classList.contains('fade-out')) return;
+  clearInterval(bootTicker);
+  bootBarFillEl.style.width = '100%';
   bootSplashEl.classList.add('fade-out');
   setTimeout(() => bootSplashEl.remove(), 700);
 }
@@ -748,30 +767,32 @@ async function runBootSequence() {
     // 1. Движок VK: dom-ready — только каркас, React рисует каталог позже.
     // ensureBasePage сам пережидает буту (пустой href) до 15с.
     bootStage('engine', 'active');
-    bootProgress(8);
+    bootPhase(0, 30);
     await wait(1500);
     await window.Shared.ensureBasePage();
     bootStage('engine', 'done');
-    bootProgress(35);
 
     // 2. Главная + Моя музыка — с одной и той же базовой страницы VK.
     // Ретраи на случай, если первый скрейп пришёлся на недогруженный каталог.
     bootStage('library', 'active');
+    bootPhase(33, 45); // подэтап: Главная
     for (let attempt = 0; attempt < 3; attempt++) {
       await window.HomeView.loadHome();
       if (!window.HomeView.isEmpty()) break;
       await wait(4000);
     }
+    bootPhase(48, 63); // подэтап: список Моей музыки
     await window.MyMusicView.loadMyMusic();
     bootStage('library', 'done');
-    bootProgress(70);
 
     // 3. Плейлисты: SPA-переход на подстраницу, скрейп сетки, возврат на базу
     bootStage('playlists', 'active');
+    bootPhase(66, 88); // подэтап: скрейп сетки плейлистов
     await window.PlaylistsView.loadPlaylists();
+    bootPhase(90, 99); // подэтап: возврат VK на базовую страницу
     await window.Shared.ensureBasePage();
     bootStage('playlists', 'done');
-    bootProgress(100);
+    bootPhase(100, 100);
   } catch (e) {
     // Прогрев — оптимизация: при сбое просто открываем приложение,
     // страницы догрузятся по старой схеме при первом заходе

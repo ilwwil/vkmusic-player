@@ -965,6 +965,6 @@ body.player-expanded #player-bar { display: none; }
   background: var(--track-bg); overflow: hidden;
 }
 #boot-bar-fill {
-  height: 100%; width: 3%; border-radius: 999px;
-  background: var(--accent); transition: width .6s ease;
+  height: 100%; width: 0%; border-radius: 999px;
+  background: var(--accent); transition: width .15s linear;
 }
