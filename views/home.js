@@ -299,20 +299,11 @@ window.HomeView = (function () {
     });
   });
 
-  // Первичная загрузка: ждём, пока VK внутри webview поднимется (dom-ready —
-  // это только каркас, React рисует каталог позже; скрейп сам подождёт секции).
-  // Если первая попытка пришлась на недогруженный VK и секции остались пустыми —
-  // повторяем ещё пару раз с паузой.
-  webview.addEventListener('dom-ready', () => {
-    let attempts = 0;
-    const tryLoad = async () => {
-      attempts++;
-      await loadHome();
-      const empty = !recentListEl.children.length && !mytracksListEl.children.length;
-      if (empty && attempts < 3) setTimeout(tryLoad, 4000);
-    };
-    setTimeout(tryLoad, 1500);
-  }, { once: true });
+  // Первичной загрузкой при старте управляет сплэш-оркестратор в renderer.js
+  // (runBootSequence) — он последовательно прогревает Главную, Мою музыку и
+  // Плейлисты, пока экран загрузки закрывает интерфейс.
+  // isEmpty — для его ретраев: секции могли не собраться на недогруженном VK.
+  const isEmpty = () => !recentListEl.children.length && !mytracksListEl.children.length;
 
-  return { loadHome };
+  return { loadHome, isEmpty };
 })();

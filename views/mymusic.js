@@ -391,6 +391,10 @@ window.MyMusicView = (function () {
 
   async function loadMoreTracks() {
     if (loadingMore || noMoreTracks || !myMusicLoaded) return;
+    // Пока идёт стартовый прогрев (сплэш ещё на экране), автодогрузку не
+    // дёргаем: браузер может восстановить скролл списка после перезагрузки
+    // и "доскроллить до низа" без участия пользователя
+    if (document.getElementById('boot-splash')) return;
     loadingMore = true;
     // Индикатор в конце списка (виден до/после шторки и на случай долгой догрузки)
     const moreEl = document.createElement('div');

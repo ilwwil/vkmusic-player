@@ -718,3 +718,66 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- Медиа-клавиши клавиатуры ----------
 window.app.onMediaKey((key) => sendCommand(key));
+
+// ---------- Сплэш при запуске: последовательный прогрев всех страниц ----------
+// VK-движок один на всё приложение, поэтому страницы грузятся строго по
+// очереди: база VK -> Главная + Моя музыка (один и тот же скрейп-источник) ->
+// тихий визит в плейлисты -> возврат на базу. Пользователь всё это время видит
+// экран загрузки с чек-листом; титулбар остаётся доступным (сплэш ниже него).
+const bootSplashEl = document.getElementById('boot-splash');
+const bootBarFillEl = document.getElementById('boot-bar-fill');
+
+function bootStage(name, state) {
+  const el = bootSplashEl.querySelector(`.boot-stage[data-stage="${name}"]`);
+  if (!el) return;
+  el.classList.toggle('active', state === 'active');
+  if (state === 'done') el.classList.add('done');
+}
+function bootProgress(pct) { bootBarFillEl.style.width = pct + '%'; }
+
+function finishBoot() {
+  if (bootSplashEl.classList.contains('fade-out')) return;
+  bootSplashEl.classList.add('fade-out');
+  setTimeout(() => bootSplashEl.remove(), 700);
+}
+
+async function runBootSequence() {
+  // Страховка: что бы ни случилось с VK, дольше 60с сплэш не живёт
+  const watchdog = setTimeout(finishBoot, 60000);
+  try {
+    // 1. Движок VK: dom-ready — только каркас, React рисует каталог позже.
+    // ensureBasePage сам пережидает буту (пустой href) до 15с.
+    bootStage('engine', 'active');
+    bootProgress(8);
+    await wait(1500);
+    await window.Shared.ensureBasePage();
+    bootStage('engine', 'done');
+    bootProgress(35);
+
+    // 2. Главная + Моя музыка — с одной и той же базовой страницы VK.
+    // Ретраи на случай, если первый скрейп пришёлся на недогруженный каталог.
+    bootStage('library', 'active');
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await window.HomeView.loadHome();
+      if (!window.HomeView.isEmpty()) break;
+      await wait(4000);
+    }
+    await window.MyMusicView.loadMyMusic();
+    bootStage('library', 'done');
+    bootProgress(70);
+
+    // 3. Плейлисты: SPA-переход на подстраницу, скрейп сетки, возврат на базу
+    bootStage('playlists', 'active');
+    await window.PlaylistsView.loadPlaylists();
+    await window.Shared.ensureBasePage();
+    bootStage('playlists', 'done');
+    bootProgress(100);
+  } catch (e) {
+    // Прогрев — оптимизация: при сбое просто открываем приложение,
+    // страницы догрузятся по старой схеме при первом заходе
+  }
+  clearTimeout(watchdog);
+  setTimeout(finishBoot, 400); // дать глазу увидеть 100%
+}
+
+webview.addEventListener('dom-ready', () => { runBootSequence(); }, { once: true });

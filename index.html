@@ -235,6 +235,20 @@
     </div>
   </div>
 
+  <!-- Сплэш при запуске: держится, пока движок VK не поднялся и данные всех
+       страниц не предзагружены (Главная + Моя музыка + Плейлисты).
+       Титулбар остаётся над сплэшем — окно можно двигать/закрыть во время загрузки. -->
+  <div id="boot-splash">
+    <div id="boot-logo">VK MUSIC</div>
+    <div id="boot-eq"><div></div><div></div><div></div><div></div><div></div></div>
+    <div id="boot-stages">
+      <div class="boot-stage" data-stage="engine"><svg viewBox="0 0 24 24"><path d="m9.55 15.15 8.475-8.475q.3-.3.7-.3t.7.3t.3.713t-.3.712l-9.175 9.2q-.3.3-.7.3t-.7-.3L4.55 13q-.3-.3-.288-.7t.288-.7t.713-.3t.712.3z"/></svg><span>Движок VK</span></div>
+      <div class="boot-stage" data-stage="library"><svg viewBox="0 0 24 24"><path d="m9.55 15.15 8.475-8.475q.3-.3.7-.3t.7.3t.3.713t-.3.712l-9.175 9.2q-.3.3-.7.3t-.7-.3L4.55 13q-.3-.3-.288-.7t.288-.7t.713-.3t.712.3z"/></svg><span>Моя музыка</span></div>
+      <div class="boot-stage" data-stage="playlists"><svg viewBox="0 0 24 24"><path d="m9.55 15.15 8.475-8.475q.3-.3.7-.3t.7.3t.3.713t-.3.712l-9.175 9.2q-.3.3-.7.3t-.7-.3L4.55 13q-.3-.3-.288-.7t.288-.7t.713-.3t.712.3z"/></svg><span>Плейлисты</span></div>
+    </div>
+    <div id="boot-bar"><div id="boot-bar-fill"></div></div>
+  </div>
+
   <!-- Просмотр обложки (клик по обложке в нижнем баре) -->
   <div id="cover-lightbox" class="hidden">
     <div id="cover-lightbox-inner">

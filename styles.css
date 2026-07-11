@@ -914,3 +914,57 @@ body.player-expanded #player-bar { display: none; }
 #volume-control-full { margin-top: 2px; z-index: 1; }
 #volume-control-full .volume-track-el { width: 150px; }
 #volume-control-full:hover .volume-fill-el { background: var(--accent); }
+
+/* ---------- Сплэш при запуске ---------- */
+/* top:36px — титулбар остаётся кликабельным (двигать/закрыть окно во время загрузки) */
+#boot-splash {
+  position: fixed; top: 36px; left: 0; right: 0; bottom: 0;
+  background: var(--bg); z-index: 120;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 28px; transition: opacity .6s ease;
+}
+#boot-splash.fade-out { opacity: 0; pointer-events: none; }
+#boot-logo {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 21px; font-weight: 800; letter-spacing: 3px;
+}
+#boot-logo::before {
+  content: ""; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--accent);
+}
+#boot-eq { display: flex; gap: 5px; align-items: flex-end; height: 34px; }
+#boot-eq div {
+  width: 6px; height: 100%; border-radius: 3px;
+  background: var(--accent); transform-origin: bottom;
+}
+#boot-eq div:nth-child(1) { animation: eqA 1.1s ease-in-out infinite; }
+#boot-eq div:nth-child(2) { animation: eqB 1.1s ease-in-out infinite .12s; }
+#boot-eq div:nth-child(3) { animation: eqC 1.1s ease-in-out infinite .24s; }
+#boot-eq div:nth-child(4) { animation: eqB 1.1s ease-in-out infinite .36s; }
+#boot-eq div:nth-child(5) { animation: eqA 1.1s ease-in-out infinite .48s; }
+#boot-stages { display: flex; flex-direction: column; gap: 12px; min-width: 200px; }
+.boot-stage {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 600; color: var(--text-dim);
+}
+.boot-stage svg {
+  width: 16px; height: 16px; flex: 0 0 auto;
+  fill: var(--accent); opacity: 0; transition: opacity .3s ease;
+}
+/* Активный этап — бегущий градиент, как у "Ищу…" в поиске */
+.boot-stage.active span {
+  background: linear-gradient(90deg, var(--text-dim) 0%, #fff 50%, var(--text-dim) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: search-status-shimmer 1.3s ease-in-out infinite;
+}
+.boot-stage.done { color: rgba(255,255,255,0.75); }
+.boot-stage.done svg { opacity: 1; }
+#boot-bar {
+  width: 200px; height: 3px; border-radius: 999px;
+  background: var(--track-bg); overflow: hidden;
+}
+#boot-bar-fill {
+  height: 100%; width: 3%; border-radius: 999px;
+  background: var(--accent); transition: width .6s ease;
+}
