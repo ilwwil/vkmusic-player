@@ -1,6 +1,6 @@
 // ---------- Раздел "Моя музыка": собственный список треков ----------
 window.MyMusicView = (function () {
-  const { webview, contentEl, SELECTORS, pickHelper, sendTrustedClick, sendTrustedHover, wait, ensureBasePage, playViaTrustedClick, showCurtain, hideCurtain, beginAutomation, endAutomation } = window.Shared;
+  const { webview, contentEl, SELECTORS, pickHelper, coverHelper, sendTrustedClick, sendTrustedHover, wait, ensureBasePage, playViaTrustedClick, showCurtain, hideCurtain, beginAutomation, endAutomation } = window.Shared;
 
   // Клик по конкретной строке "Моя музыка" из нашего собственного списка (не
   // шафл) — находим ту же строку по индексу внутри AudioCatalog_SectionTracks
@@ -96,6 +96,7 @@ window.MyMusicView = (function () {
     return `
       (async function() {
         ${pickHelper()}
+        ${coverHelper()}
         const sel = ${JSON.stringify(SELECTORS)};
         function waitFor(fn, timeoutMs) {
           return new Promise(resolve => {
@@ -125,7 +126,7 @@ window.MyMusicView = (function () {
             title: titleEl ? titleEl.textContent.trim() : '',
             artist: authorsEl ? authorsEl.textContent.trim() : '',
             duration: durationEl ? durationEl.textContent.trim() : '',
-            cover: img ? img.src : ''
+            cover: hiResCover(row, 300) || (img ? img.src : '')
           };
         });
         return JSON.stringify({ ok: true, tracks });
@@ -171,6 +172,7 @@ window.MyMusicView = (function () {
   function loadMoreScript() {
     return `
       (async function() {
+        ${coverHelper()}
         const q = () => document.querySelectorAll('[data-testid="AudioCatalog_SectionTracks"] [data-testid="MusicTrackRow"]');
         const before = q().length;
         const el = document.scrollingElement;
@@ -197,7 +199,7 @@ window.MyMusicView = (function () {
             title: titleEl ? titleEl.textContent.trim() : '',
             artist: authorsEl ? authorsEl.textContent.trim() : '',
             duration: durationEl ? durationEl.textContent.trim() : '',
-            cover: img ? img.src : ''
+            cover: hiResCover(row, 300) || (img ? img.src : '')
           };
         });
         return JSON.stringify({ ok: true, tracks });

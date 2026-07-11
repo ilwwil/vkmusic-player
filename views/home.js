@@ -1,6 +1,6 @@
 // ---------- Раздел "Главная": VK Микс, шафл и превью-секции ----------
 window.HomeView = (function () {
-  const { webview, SELECTORS, pickHelper, ensureBasePage, playViaTrustedClick } = window.Shared;
+  const { webview, SELECTORS, pickHelper, coverHelper, ensureBasePage, playViaTrustedClick } = window.Shared;
 
   // Переключение вкладок каталога — SPA-навигация (без перезагрузки страницы),
   // поэтому не сбивает текущее воспроизведение/поллинг нижней панели.
@@ -105,6 +105,7 @@ window.HomeView = (function () {
     return `
       (async function() {
         ${pickHelper()}
+        ${coverHelper()}
         const sel = ${JSON.stringify(SELECTORS)};
         function waitFor(fn, timeoutMs) {
           return new Promise(resolve => {
@@ -128,7 +129,7 @@ window.HomeView = (function () {
               title: titleEl ? titleEl.textContent.trim() : '',
               artist: authorsEl ? authorsEl.textContent.trim() : '',
               duration: durationEl ? durationEl.textContent.trim() : '',
-              cover: img ? img.src : ''
+              cover: hiResCover(row, 300) || (img ? img.src : '')
             };
           });
         }
@@ -261,7 +262,9 @@ window.HomeView = (function () {
       const res = JSON.parse(raw);
       if (!res.ok) return;
       homeTracks = res;
-      fillHeroChips([...res.recent, ...res.tracks]);
+      // "Мои треки" вперёд: чипы на баннере VK Микс не должны дублировать
+      // обложки из "Недавно прослушанные" сразу под ним
+      fillHeroChips([...res.tracks, ...res.recent]);
       recentListEl.innerHTML = '';
       res.recent.forEach(t => recentListEl.appendChild(formatHomeRow(t, 'recent')));
       mytracksListEl.innerHTML = '';

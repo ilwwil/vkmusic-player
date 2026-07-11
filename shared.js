@@ -19,6 +19,39 @@ window.Shared = (function () {
     `;
   }
 
+  // Строчный <img> в списке треков — это подписанный URL на 68x68 (реже
+  // 34x34), апскейл которого в крупные плитки (баннеры, "Недавно
+  // прослушанные") выглядит размыто. Подписи по размеру сгенерированы VK
+  // заранее и не подделываются на клиенте (смена size= в URL без валидной
+  // подписи отдаёт 403) — но полный набор готовых подписанных вариантов
+  // (34..1200px) лежит в пропсах React-компонента строки (track.entity.cover.sizes),
+  // рядом с тем же <img>. Проходим по дереву fiber вверх от элемента и берём
+  // из него ближайший подходящий по размеру вариант.
+  function coverHelper() {
+    return `
+      function hiResCover(startEl, minSize) {
+        try {
+          const key = Object.keys(startEl).find(k => k.startsWith('__reactFiber'));
+          if (!key) return null;
+          let fiber = startEl[key];
+          let depth = 0;
+          while (fiber && depth < 30) {
+            const props = fiber.memoizedProps;
+            const cover = props && props.track && props.track.entity && props.track.entity.cover;
+            if (cover && Array.isArray(cover.sizes) && cover.sizes.length) {
+              const sorted = cover.sizes.slice().sort((a, b) => a.width - b.width);
+              const fit = sorted.find(s => s.width >= minSize);
+              return (fit || sorted[sorted.length - 1]).src;
+            }
+            fiber = fiber.return;
+            depth++;
+          }
+        } catch (e) {}
+        return null;
+      }
+    `;
+  }
+
   function sendTrustedClick(x, y) {
     webview.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
     webview.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
@@ -192,7 +225,7 @@ window.Shared = (function () {
 
   return {
     webview, contentEl, SELECTORS,
-    pickHelper, sendTrustedClick, sendTrustedHover, wait,
+    pickHelper, coverHelper, sendTrustedClick, sendTrustedHover, wait,
     ensureBasePage,
     checkPlayNeededScript, playViaTrustedClick,
     showCurtain, hideCurtain,
