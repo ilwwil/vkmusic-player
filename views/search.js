@@ -255,6 +255,9 @@ window.SearchView = (function () {
   function removeFromHistory(query) {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(readHistory().filter(q => q !== query)));
   }
+  function clearHistory() {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([]));
+  }
 
   // ---------- Дропдаун глобального поиска: история + подсказки ----------
   const HISTORY_ICON_D = 'M12 20q-3.35 0-5.675-2.325T4 12t2.325-5.675T12 4q1.9 0 3.575.813T18.2 7H16q-.275 0-.475.2T15.325 7.7q0 .275.2.475t.475.2H19q.425 0 .713-.288T20 7.4V4q0-.275-.2-.475T19.3 3.325q-.275 0-.475.2t-.2.475v1.6q-1.35-1.325-3.15-2.063T12 3q-3.75 0-6.375 2.625T3 12t2.625 6.375T12 21q3.05 0 5.4-1.788T20.65 14.6q.075-.375-.125-.65t-.575-.375q-.35-.075-.65.113t-.4.512q-.55 2.075-2.35 3.487T12 20m.5-8.7V6.5q0-.2-.15-.35T12 6t-.35.15t-.15.35v5l4.15 4.15q.15.15.35.15t.35-.15t.15-.35t-.15-.35z';
@@ -443,27 +446,59 @@ window.SearchView = (function () {
   // Пустое состояние до первого запроса: подсказка + недавние запросы
   function renderIdle() {
     searchListEl.innerHTML = '';
-    const idle = document.createElement('div');
-    idle.className = 'search-idle';
     const history = readHistory();
-    idle.innerHTML = '<div class="search-idle-hint">Ищите по всей музыке ВКонтакте — треки, которых нет в вашей библиотеке, тоже найдутся.</div>';
+    const card = document.createElement('div');
+    card.className = 'search-idle-card';
+
+    const intro = document.createElement('div');
+    intro.className = 'search-idle-intro' + (history.length ? ' with-history' : '');
+    intro.innerHTML = `
+      <div class="search-idle-icon"><svg viewBox="0 0 24 24"><path d="${SEARCH_ICON_D}"/></svg></div>
+      <div class="search-idle-hint">Ищите по всей музыке ВКонтакте — треки, которых нет в вашей библиотеке, тоже найдутся.</div>
+    `;
+    card.appendChild(intro);
+
     if (history.length) {
+      const historyBlock = document.createElement('div');
+      historyBlock.className = 'search-idle-history';
+
+      const header = document.createElement('div');
+      header.className = 'search-idle-history-header';
       const title = document.createElement('div');
-      title.className = 'search-section-title';
+      title.className = 'search-idle-history-title';
       title.textContent = 'Недавние запросы';
-      idle.appendChild(title);
-      const chips = document.createElement('div');
-      chips.className = 'search-history';
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'search-idle-clear';
+      clearBtn.textContent = 'Очистить';
+      clearBtn.addEventListener('click', () => { clearHistory(); renderIdle(); });
+      header.appendChild(title);
+      header.appendChild(clearBtn);
+      historyBlock.appendChild(header);
+
+      const list = document.createElement('div');
+      list.className = 'search-idle-history-list';
       history.forEach(q => {
-        const chip = document.createElement('button');
-        chip.className = 'search-chip';
-        chip.textContent = q;
-        chip.addEventListener('click', () => { searchInputEl.value = q; doSearch(); });
-        chips.appendChild(chip);
+        const row = document.createElement('div');
+        row.className = 'search-idle-history-row';
+        row.innerHTML = `
+          <svg viewBox="0 0 24 24"><path d="${HISTORY_ICON_D}"/></svg>
+          <span class="search-idle-history-text"></span>
+        `;
+        row.querySelector('.search-idle-history-text').textContent = q;
+        row.addEventListener('click', () => { searchInputEl.value = q; doSearch(); });
+        const rm = document.createElement('button');
+        rm.className = 'search-idle-history-remove';
+        rm.title = 'Удалить';
+        rm.innerHTML = `<svg viewBox="0 0 24 24"><path d="${REMOVE_ICON_D}"/></svg>`;
+        rm.addEventListener('click', (e) => { e.stopPropagation(); removeFromHistory(q); renderIdle(); });
+        row.appendChild(rm);
+        list.appendChild(row);
       });
-      idle.appendChild(chips);
+      historyBlock.appendChild(list);
+      card.appendChild(historyBlock);
     }
-    searchListEl.appendChild(idle);
+
+    searchListEl.appendChild(card);
   }
 
   function formatSearchRow(track, scope) {
@@ -492,76 +527,85 @@ window.SearchView = (function () {
   }
 
   function renderSection(titleText, tracks, scope) {
-    if (!tracks.length) return;
+    if (!tracks.length) return null;
+    const card = document.createElement('div');
+    card.className = 'search-card';
     const title = document.createElement('div');
     title.className = 'search-section-title';
     title.textContent = titleText;
-    searchListEl.appendChild(title);
+    card.appendChild(title);
     const grid = document.createElement('div');
     grid.className = 'search-track-grid';
     tracks.forEach(track => {
       searchTracks.push({ ...track, scope });
       grid.appendChild(formatSearchRow(track, scope));
     });
-    searchListEl.appendChild(grid);
+    card.appendChild(grid);
+    return card;
   }
 
   // Альбомы и музыканты — витрина; клик запускает новый поиск по названию
   // (открытие страниц альбома/артиста у нас пока нет — см. отчёт по дизайну)
   function renderAlbums(albums) {
-    if (!albums.length) return;
+    if (!albums.length) return null;
+    const card = document.createElement('div');
+    card.className = 'search-card';
     const title = document.createElement('div');
     title.className = 'search-section-title';
     title.textContent = 'Альбомы';
-    searchListEl.appendChild(title);
+    card.appendChild(title);
     const strip = document.createElement('div');
     strip.className = 'search-carousel';
     albums.forEach(al => {
-      const card = document.createElement('button');
-      card.className = 'search-album';
-      card.innerHTML = `
+      const item = document.createElement('button');
+      item.className = 'search-album';
+      item.innerHTML = `
         <img class="search-album-cover" alt="">
         <div class="search-album-title"></div>
         <div class="search-album-sub"></div>
       `;
-      const img = card.querySelector('.search-album-cover');
+      const img = item.querySelector('.search-album-cover');
       if (al.cover) img.src = al.cover;
-      card.querySelector('.search-album-title').textContent = al.title;
-      card.querySelector('.search-album-sub').textContent = [al.author, al.year].filter(Boolean).join(' · ');
-      card.addEventListener('click', () => {
+      item.querySelector('.search-album-title').textContent = al.title;
+      item.querySelector('.search-album-sub').textContent = [al.author, al.year].filter(Boolean).join(' · ');
+      item.addEventListener('click', () => {
         searchInputEl.value = `${al.author} ${al.title}`.trim();
         doSearch();
       });
-      strip.appendChild(card);
+      strip.appendChild(item);
     });
-    searchListEl.appendChild(strip);
+    card.appendChild(strip);
+    return card;
   }
 
   function renderArtists(artists) {
-    if (!artists.length) return;
+    if (!artists.length) return null;
+    const card = document.createElement('div');
+    card.className = 'search-card';
     const title = document.createElement('div');
     title.className = 'search-section-title';
     title.textContent = 'Музыканты';
-    searchListEl.appendChild(title);
+    card.appendChild(title);
     const strip = document.createElement('div');
     strip.className = 'search-carousel';
     artists.forEach(ar => {
-      const card = document.createElement('button');
-      card.className = 'search-artist';
-      card.innerHTML = `
+      const item = document.createElement('button');
+      item.className = 'search-artist';
+      item.innerHTML = `
         <img class="search-artist-photo" alt="">
         <div class="search-artist-name"></div>
       `;
-      const img = card.querySelector('.search-artist-photo');
+      const img = item.querySelector('.search-artist-photo');
       if (ar.photo) img.src = ar.photo;
-      card.querySelector('.search-artist-name').textContent = ar.name;
-      card.addEventListener('click', () => {
+      item.querySelector('.search-artist-name').textContent = ar.name;
+      item.addEventListener('click', () => {
         searchInputEl.value = ar.name;
         doSearch();
       });
-      strip.appendChild(card);
+      strip.appendChild(item);
     });
-    searchListEl.appendChild(strip);
+    card.appendChild(strip);
+    return card;
   }
 
   async function doSearch() {
@@ -587,10 +631,22 @@ window.SearchView = (function () {
       vkSearchActive = true;
       saveToHistory(query);
       // Как у VK: сперва совпадения из своей библиотеки, затем общий каталог
-      renderSection('Мои треки', res.my, 'my');
-      renderSection('Все треки', res.all, 'all');
-      renderAlbums(res.albums || []);
-      renderArtists(res.artists || []);
+      const resultsWrap = document.createElement('div');
+      resultsWrap.className = 'search-results';
+      const myCard = renderSection('Мои треки', res.my, 'my');
+      if (myCard) resultsWrap.appendChild(myCard);
+      const allCard = renderSection('Все треки', res.all, 'all');
+      if (allCard) resultsWrap.appendChild(allCard);
+      const albumsCard = renderAlbums(res.albums || []);
+      const artistsCard = renderArtists(res.artists || []);
+      if (albumsCard || artistsCard) {
+        const row = document.createElement('div');
+        row.className = 'search-albums-row';
+        if (albumsCard) row.appendChild(albumsCard);
+        if (artistsCard) row.appendChild(artistsCard);
+        resultsWrap.appendChild(row);
+      }
+      searchListEl.appendChild(resultsWrap);
       searchStatusEl.textContent = searchTracks.length ? '' : 'Ничего не найдено';
     } catch (err) {
       searchStatusEl.textContent = 'Ошибка: ' + err.message;
