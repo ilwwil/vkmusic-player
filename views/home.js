@@ -204,6 +204,19 @@ window.HomeView = (function () {
     `;
   }
 
+  // Заполняем "бегущие" превью-обложки на баннере VK Микс реальными обложками
+  // из библиотеки вместо декоративной текстуры-плейсхолдера
+  function fillHeroChips(tracks) {
+    const chips = document.querySelectorAll('#home-card-mix .hero-chips div');
+    const covers = tracks.map(t => t.cover).filter(Boolean);
+    if (!covers.length) return;
+    chips.forEach((chip, i) => {
+      chip.style.backgroundImage = `url("${covers[i % covers.length]}")`;
+      chip.style.backgroundSize = 'cover';
+      chip.style.backgroundPosition = 'center';
+    });
+  }
+
   const recentSectionEl = document.getElementById('home-recent-section');
   const recentListEl = document.getElementById('home-recent-list');
   const mytracksSectionEl = document.getElementById('home-mytracks-section');
@@ -248,6 +261,7 @@ window.HomeView = (function () {
       const res = JSON.parse(raw);
       if (!res.ok) return;
       homeTracks = res;
+      fillHeroChips([...res.recent, ...res.tracks]);
       recentListEl.innerHTML = '';
       res.recent.forEach(t => recentListEl.appendChild(formatHomeRow(t, 'recent')));
       mytracksListEl.innerHTML = '';

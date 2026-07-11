@@ -226,6 +226,29 @@ window.MyMusicView = (function () {
     const bannerSub = document.getElementById('home-library-sub');
     if (bannerSub && text) bannerSub.textContent = text;
   }
+  // Заполняем мозаику обложек на хиро-баннере реальными треками библиотеки
+  // вместо декоративной текстуры-плейсхолдера; лёгкие цветные оттенки поверх
+  // части плиток — как в макете (там варианты акцентного/синего/белого тона)
+  const HERO_TILE_TINTS = [
+    null,
+    'linear-gradient(135deg, rgba(var(--accent-rgb),0.4), transparent 70%)',
+    'linear-gradient(135deg, rgba(120,150,255,0.32), transparent 70%)',
+    'linear-gradient(135deg, rgba(255,255,255,0.14), transparent 70%)',
+    'linear-gradient(135deg, rgba(255,100,110,0.3), transparent 70%)',
+    'linear-gradient(135deg, rgba(110,255,170,0.24), transparent 70%)',
+  ];
+  function fillHeroTiles(tracks) {
+    const tiles = document.querySelectorAll('#mymusic-hero .hero-tiles div');
+    const covers = tracks.map(t => t.cover).filter(Boolean);
+    if (!covers.length) return;
+    tiles.forEach((tile, i) => {
+      const tint = HERO_TILE_TINTS[i % HERO_TILE_TINTS.length];
+      tile.style.backgroundImage = (tint ? tint + ', ' : '') + `url("${covers[i % covers.length]}")`;
+      tile.style.backgroundSize = 'cover';
+      tile.style.backgroundPosition = 'center';
+    });
+  }
+
   let myMusicTracks = [];
   let myMusicLoaded = false;
   let loadingMore = false;
@@ -300,6 +323,7 @@ window.MyMusicView = (function () {
       myMusicTracks.forEach(track => mymusicListEl.appendChild(formatMyMusicRow(track)));
       mymusicStatusEl.textContent = '';
       updateCount();
+      fillHeroTiles(myMusicTracks);
     } catch (err) {
       mymusicStatusEl.textContent = 'Ошибка: ' + err.message;
     }
