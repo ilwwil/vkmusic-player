@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>VK Music Player</title>
+<title>VK Music Player (unofficial)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
 
   <!-- Своя рамка окна -->
   <div id="titlebar">
-    <div id="titlebar-drag">VK MUSIC</div>
+    <div id="titlebar-drag">VK MUSIC PLAYER <span class="titlebar-unofficial">unofficial</span></div>
     <div id="titlebar-buttons">
       <button id="btn-min" title="Свернуть"><svg viewBox="0 0 24 24"><path d="M6 13q-.425 0-.712-.288T5 12t.288-.712T6 11h12q.425 0 .713.288T19 12t-.288.713T18 13z"/></svg></button>
       <button id="btn-max" title="Развернуть"><svg viewBox="0 0 24 24"><path d="M8 18q-.825 0-1.412-.587T6 16V4q0-.825.588-1.412T8 2h12q.825 0 1.413.588T22 4v12q0 .825-.587 1.413T20 18zm-4 4q-.825 0-1.412-.587T2 20V7q0-.425.288-.712T3 6t.713.288T4 7v13h13q.425 0 .713.288T18 21t-.288.713T17 22z"/></svg></button>
@@ -239,7 +239,8 @@
        страниц не предзагружены (Главная + Моя музыка + Плейлисты).
        Титулбар остаётся над сплэшем — окно можно двигать/закрыть во время загрузки. -->
   <div id="boot-splash">
-    <div id="boot-logo">VK MUSIC</div>
+    <div id="boot-logo">VK MUSIC PLAYER</div>
+    <div id="boot-sub">unofficial</div>
     <div id="boot-eq"><div></div><div></div><div></div><div></div><div></div></div>
     <div id="boot-stages">
       <div class="boot-stage" data-stage="engine"><svg viewBox="0 0 24 24"><path d="m9.55 15.15 8.475-8.475q.3-.3.7-.3t.7.3t.3.713t-.3.712l-9.175 9.2q-.3.3-.7.3t-.7-.3L4.55 13q-.3-.3-.288-.7t.288-.7t.713-.3t.712.3z"/></svg><span>Движок VK</span></div>

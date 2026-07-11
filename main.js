@@ -46,7 +46,7 @@ function createTray() {
     { type: 'separator' },
     { label: 'Выход', click: () => { app.isQuitting = true; app.quit(); } }
   ]);
-  tray.setToolTip('VK Music Player');
+  tray.setToolTip('VK Music Player (unofficial)');
   tray.setContextMenu(menu);
   tray.on('click', () => mainWindow.show());
 }
