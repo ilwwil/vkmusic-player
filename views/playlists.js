@@ -319,6 +319,8 @@ window.PlaylistsView = (function () {
       gridEl.innerHTML = '';
       playlists.forEach(pl => gridEl.appendChild(formatPlaylistCard(pl)));
       statusEl.textContent = '';
+      const countEl = document.getElementById('playlists-count');
+      if (countEl) countEl.textContent = playlists.length || '';
     } catch (err) {
       statusEl.textContent = 'Ошибка: ' + err.message;
     }

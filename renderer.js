@@ -407,9 +407,13 @@ function updateUI(state) {
   if (state.cover) {
     coverMini.src = state.cover;
     coverFull.src = state.cover;
+    updateDynamicAccent(state.cover);
   }
 
   setIconPath('.btn-playpause', state.isPlaying ? PAUSE_D : PLAY_D);
+  // Эквалайзер у названия трека оживает только пока музыка реально играет
+  const eqMini = document.getElementById('eq-mini');
+  if (eqMini) eqMini.classList.toggle('playing', !!state.isPlaying);
 
   // Синхронизируем базовое состояние прогресса из опроса; между опросами
   // отрисовкой занимается renderProgress (см. локальный тикер).
@@ -483,10 +487,60 @@ function updateUI(state) {
     document.querySelectorAll('.volume-fill-el').forEach(el => { el.style.width = vol + '%'; });
   }
   setIconPath('.btn-mute', state.muted ? VOLUME_OFF_D : VOLUME_UP_D);
+  // Фон развёрнутого плеера (#cover-bg) теперь — амбиент из акцентного цвета,
+  // целиком на CSS-переменных; картинку сюда больше не подставляем.
+}
 
-  // Размытая обложка фоном развёрнутого плеера
-  const coverBg = document.getElementById('cover-bg');
-  if (coverBg && state.cover) coverBg.style.backgroundImage = `url("${state.cover}")`;
+// ---------- Динамический акцент от обложки ----------
+// По макету: --accent по умолчанию #FFB454, но если удаётся вытащить
+// доминирующий цвет обложки — красим им весь интерфейс (переменные --accent /
+// --accent-rgb). Обложки VK лежат на CDN; если он не отдаёт CORS-заголовки,
+// canvas окажется "испорченным" и чтение пикселей бросит — тогда молча
+// остаёмся на дефолте.
+const ACCENT_DEFAULT = { r: 255, g: 180, b: 84 };
+let lastAccentCover = null;
+function applyAccent({ r, g, b }) {
+  const root = document.documentElement;
+  root.style.setProperty('--accent', `rgb(${r},${g},${b})`);
+  root.style.setProperty('--accent-rgb', `${r},${g},${b}`);
+}
+function updateDynamicAccent(coverUrl) {
+  if (coverUrl === lastAccentCover) return;
+  lastAccentCover = coverUrl;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    try {
+      const size = 24; // уменьшенная копия — быстрее и усредняет шум
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, size, size);
+      const data = ctx.getImageData(0, 0, size, size).data;
+      // Средний цвет по "живым" пикселям (не почти-чёрным и не почти-белым),
+      // чтобы фон/виньетки обложки не утаскивали акцент в серость
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const pr = data[i], pg = data[i + 1], pb = data[i + 2];
+        const lum = 0.299 * pr + 0.587 * pg + 0.114 * pb;
+        if (lum < 28 || lum > 235) continue;
+        r += pr; g += pg; b += pb; n++;
+      }
+      if (!n) { applyAccent(ACCENT_DEFAULT); return; }
+      r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+      // Подсветляем и насыщаем до читаемого акцента (среднее часто мутное)
+      const max = Math.max(r, g, b) || 1;
+      const boost = 215 / max;
+      r = Math.min(255, Math.round(r * boost));
+      g = Math.min(255, Math.round(g * boost));
+      b = Math.min(255, Math.round(b * boost));
+      applyAccent({ r, g, b });
+    } catch (e) {
+      applyAccent(ACCENT_DEFAULT); // canvas taint / CORS — остаёмся на дефолте
+    }
+  };
+  img.onerror = () => applyAccent(ACCENT_DEFAULT);
+  img.src = coverUrl;
 }
 
 webview.addEventListener('console-message', (e) => {

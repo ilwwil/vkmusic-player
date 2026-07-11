@@ -98,7 +98,7 @@ window.HomeView = (function () {
   // заголовке AudioCatalog_BlockHeaderRecentlyPlayed (строки лежат в её
   // ближайшем <section>, отдельного testid у секции нет), треки — привычная
   // AudioCatalog_SectionTracks. Один скрейп собирает обе.
-  const RECENT_LIMIT = 6;
+  const RECENT_LIMIT = 5; // одна плотная строка сетки, как в макете
   const MYTRACKS_LIMIT = 8;
 
   function scrapeHomeScript() {
@@ -263,10 +263,12 @@ window.HomeView = (function () {
     }
   }
 
-  document.getElementById('home-mytracks-all').addEventListener('click', () => {
+  const goMyMusicNav = () => {
     const navBtn = document.querySelector('.nav-item[data-view="mymusic"]');
     if (navBtn) navBtn.click();
-  });
+  };
+  document.getElementById('home-mytracks-all').addEventListener('click', goMyMusicNav);
+  document.getElementById('home-card-gomymusic').addEventListener('click', goMyMusicNav);
 
   // Подсветка играющего трека в обеих секциях
   window.addEventListener('vk-player-state', (e) => {

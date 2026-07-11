@@ -220,7 +220,11 @@ window.MyMusicView = (function () {
   }
   function updateCount() {
     const n = myMusicTracks.length;
-    mymusicCountEl.textContent = n ? `${n} ${trackWord(n)}${noMoreTracks ? '' : ' +'}` : '';
+    const text = n ? `${n} ${trackWord(n)}${noMoreTracks ? '' : ' +'}` : '';
+    mymusicCountEl.textContent = text;
+    // Подпись на баннере "Моя музыка" Главной — то же число
+    const bannerSub = document.getElementById('home-library-sub');
+    if (bannerSub && text) bannerSub.textContent = text;
   }
   let myMusicTracks = [];
   let myMusicLoaded = false;
