@@ -253,7 +253,7 @@ window.MyMusicView = (function () {
     startHeroTileRotation(tiles);
   }
 
-  // Раз в 5-10с меняем случайную плитку мозаики на другую обложку из
+  // Раз в 5-30с меняем случайную плитку мозаики на другую обложку из
   // библиотеки — с плавным затемнением/проявлением (transition уже есть в CSS
   // на opacity). Список треков читаем "на лету" из myMusicTracks: пул обложек
   // сам расширяется по мере догрузки библиотеки при скролле — никакого
@@ -265,7 +265,7 @@ window.MyMusicView = (function () {
     tiles.forEach((tile, i) => scheduleTileSwap(tile, i));
   }
   function scheduleTileSwap(tile, index) {
-    const delay = 5000 + Math.random() * 5000;
+    const delay = 5000 + Math.random() * 25000;
     setTimeout(() => {
       const covers = myMusicTracks.map(t => t.cover).filter(Boolean);
       if (covers.length > 1) {
