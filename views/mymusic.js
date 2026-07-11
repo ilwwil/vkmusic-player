@@ -237,16 +237,50 @@ window.MyMusicView = (function () {
     'linear-gradient(135deg, rgba(255,100,110,0.3), transparent 70%)',
     'linear-gradient(135deg, rgba(110,255,170,0.24), transparent 70%)',
   ];
+  function setTileCover(tile, index, cover) {
+    const tint = HERO_TILE_TINTS[index % HERO_TILE_TINTS.length];
+    tile.style.backgroundImage = (tint ? tint + ', ' : '') + `url("${cover}")`;
+    tile.style.backgroundSize = 'cover';
+    tile.style.backgroundPosition = 'center';
+    tile.dataset.cover = cover;
+  }
+
   function fillHeroTiles(tracks) {
     const tiles = document.querySelectorAll('#mymusic-hero .hero-tiles div');
     const covers = tracks.map(t => t.cover).filter(Boolean);
     if (!covers.length) return;
-    tiles.forEach((tile, i) => {
-      const tint = HERO_TILE_TINTS[i % HERO_TILE_TINTS.length];
-      tile.style.backgroundImage = (tint ? tint + ', ' : '') + `url("${covers[i % covers.length]}")`;
-      tile.style.backgroundSize = 'cover';
-      tile.style.backgroundPosition = 'center';
-    });
+    tiles.forEach((tile, i) => setTileCover(tile, i, covers[i % covers.length]));
+    startHeroTileRotation(tiles);
+  }
+
+  // Раз в 5-10с меняем случайную плитку мозаики на другую обложку из
+  // библиотеки — с плавным затемнением/проявлением (transition уже есть в CSS
+  // на opacity). Список треков читаем "на лету" из myMusicTracks: пул обложек
+  // сам расширяется по мере догрузки библиотеки при скролле — никакого
+  // отдельного пересчёта/рестарта таймеров на этот случай не нужно.
+  let heroRotationStarted = false;
+  function startHeroTileRotation(tiles) {
+    if (heroRotationStarted) return;
+    heroRotationStarted = true;
+    tiles.forEach((tile, i) => scheduleTileSwap(tile, i));
+  }
+  function scheduleTileSwap(tile, index) {
+    const delay = 5000 + Math.random() * 5000;
+    setTimeout(() => {
+      const covers = myMusicTracks.map(t => t.cover).filter(Boolean);
+      if (covers.length > 1) {
+        let next;
+        let attempts = 0;
+        do { next = covers[Math.floor(Math.random() * covers.length)]; attempts++; }
+        while (next === tile.dataset.cover && attempts < 5);
+        tile.style.opacity = '0.15';
+        setTimeout(() => {
+          setTileCover(tile, index, next);
+          tile.style.opacity = '0.8';
+        }, 260); // на полпути css-перехода opacity (.5s) — смена происходит скрыто
+      }
+      scheduleTileSwap(tile, index);
+    }, delay);
   }
 
   let myMusicTracks = [];
