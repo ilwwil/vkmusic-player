@@ -742,6 +742,20 @@ button.section-title:hover { color: rgba(255,255,255,0.7); }
 }
 #vk-curtain.visible { opacity: 1; transform: translate(-50%, 0); }
 
+#vk-attention {
+  position: absolute; left: 50%; top: 0;
+  transform: translate(-50%, -100%);
+  display: flex; align-items: center; gap: 12px;
+  background: var(--float); border-radius: 0 0 14px 14px;
+  padding: 12px 22px; max-width: 520px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  opacity: 0; pointer-events: none; z-index: 40;
+  transition: opacity .2s ease, transform .2s ease;
+}
+#vk-attention.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+#vk-attention-title { font-size: 13px; font-weight: 700; color: #fff; }
+#vk-attention-hint { font-size: 11.5px; font-weight: 500; color: var(--text-dim); margin-top: 2px; }
+
 /* ---------- Нижний плеер ---------- */
 #player-bar {
   position: relative; height: 84px; flex: 0 0 auto; background: var(--bg);

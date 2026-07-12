@@ -139,6 +139,35 @@ window.Shared = (function () {
   async function currentHref() {
     try { return await webview.executeJavaScript('location.href'); } catch (e) { return ''; }
   }
+
+  // Если каталог не удаётся открыть даже полной перезагрузкой — скорее всего
+  // VK требует ручного действия: вход в аккаунт, капча, подтверждение входа с
+  // нового устройства и т.п. Отличить эти случаи друг от друга не пытаемся —
+  // просто показываем настоящий VK (как debug-кнопка "Показать VK") и ждём,
+  // пока пользователь сам не приведёт его на каталог, затем прячем обратно.
+  // window события вместо прямого вызова renderer.js — shared.js грузится
+  // раньше него в index.html.
+  let attentionWait = null;
+  function waitForVkAttention() {
+    if (attentionWait) return attentionWait;
+    contentEl.classList.add('vk-visible');
+    window.dispatchEvent(new CustomEvent('vk-needs-attention', { detail: true }));
+    attentionWait = (async () => {
+      while (true) {
+        await wait(2500);
+        try {
+          await webview.executeJavaScript(spaCleanupScript());
+          if (await webview.executeJavaScript(basePageReadyScript())) break;
+        } catch (e) { /* страница ещё грузится/перезагружается */ }
+      }
+    })();
+    return attentionWait.finally(() => {
+      contentEl.classList.remove('vk-visible');
+      window.dispatchEvent(new CustomEvent('vk-needs-attention', { detail: false }));
+      attentionWait = null;
+    });
+  }
+
   async function ensureBasePage() {
     // Стартовый случай: webview ещё грузит vk.com — дождёмся настоящего URL,
     // иначе пустой href принимался за "грязный" и запускал лишнюю перезагрузку
@@ -168,7 +197,9 @@ window.Shared = (function () {
         if (await webview.executeJavaScript(basePageReadyScript())) return true;
       } catch (e) { /* страница ещё грузится */ }
     }
-    return false;
+    // Этап 3: даже перезагрузка не привела на каталог — ждём пользователя
+    await waitForVkAttention();
+    return true;
   }
 
   // VK не обрабатывает клик по кнопке play/pause, пока webview визуально скрыт
@@ -315,7 +346,7 @@ window.Shared = (function () {
   return {
     webview, contentEl, SELECTORS,
     pickHelper, coverHelper, sendTrustedClick, sendTrustedHover, wait,
-    ensureBasePage,
+    basePageReadyScript, spaCleanupScript, ensureBasePage,
     checkPlayNeededScript, playViaTrustedClick,
     modalScrapeScript, closeModalScript,
     showCurtain, hideCurtain,

@@ -767,6 +767,16 @@ function finishBoot() {
   setTimeout(() => bootSplashEl.remove(), 700);
 }
 
+// ---------- Требуется внимание в VK: вход, капча, подтверждение устройства ----------
+// Событие шлёт shared.js (ensureBasePage) — сам показывает настоящий VK
+// (#content.vk-visible), здесь только текст плашки и досрочное завершение
+// сплэша, если запрос пришёл во время загрузки.
+const vkAttentionEl = document.getElementById('vk-attention');
+window.addEventListener('vk-needs-attention', (e) => {
+  vkAttentionEl.classList.toggle('visible', !!e.detail);
+  if (e.detail) finishBoot();
+});
+
 async function runBootSequence() {
   // Страховка: что бы ни случилось с VK, дольше 60с сплэш не живёт
   const watchdog = setTimeout(finishBoot, 60000);

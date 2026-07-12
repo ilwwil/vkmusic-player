@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "test": "node --test",
     "build": "electron-builder --win"
   },
   "author": "you",
@@ -21,7 +22,8 @@
     },
     "files": [
       "**/*",
-      "!README.md"
+      "!README.md",
+      "!test/**"
     ]
   }
 }
