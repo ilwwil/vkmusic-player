@@ -178,7 +178,16 @@ window.Shared = (function () {
       href = await currentHref();
     }
     const isDirty = !href || /[?&](block|q)=/.test(href) || !/vk\.com\/audio/.test(href);
-    if (!isDirty) return true;
+    if (!isDirty) {
+      // URL чистый, но это ещё не значит, что каталог реально отрисован —
+      // на той же /audio VK может показывать вместо него стену входа/капчу.
+      // Раньше здесь сразу возвращали true, из-за чего "не залогинен" не
+      // отличалось от "всё готово", и просьба войти никогда не показывалась
+      // сама — пользователь узнавал о проблеме только по пустому каталогу.
+      try {
+        if (await webview.executeJavaScript(basePageReadyScript())) return true;
+      } catch (e) { /* страница ещё грузится */ }
+    }
     // Этап 1: SPA-очистка
     let deadline = Date.now() + 6000;
     while (Date.now() < deadline) {

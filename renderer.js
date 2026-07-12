@@ -1,7 +1,7 @@
 // ---------- Оболочка приложения: рамка окна, сайдбар, опрос VK, нижний плеер ----------
 // Разделы (Главная, Моя музыка) живут в своих файлах — см. views/home.js и
 // views/mymusic.js. Здесь только то, что общее для всего приложения.
-const { webview, contentEl, SELECTORS, pickHelper, sendTrustedClick, wait } = window.Shared;
+const { webview, contentEl, SELECTORS, pickHelper, sendTrustedClick, wait, beginAutomation, endAutomation } = window.Shared;
 
 // ---------- Кастомная рамка окна ----------
 document.getElementById('btn-min').onclick = () => window.app.windowControl('minimize');
@@ -595,18 +595,25 @@ function setupSeek(trackEl, fillEl) {
     document.removeEventListener('mouseup', onUp);
     trackEl.classList.remove('seeking');
     const ratio = ratioFromEvent(e);
+    // Доверенный клик (sendInputEvent) не доходит, пока webview скрыт
+    // (visibility:hidden) — как и у остальных кликов по VK в приложении,
+    // на время попытки временно делаем его видимым для компоновщика.
+    const manual = beginAutomation();
     webview.executeJavaScript(seekScript(ratio))
-      .then(raw => {
+      .then(async raw => {
         const diag = JSON.parse(raw);
         console.log('[VK Player] seek diag:', diag);
         if (diag.method === 'input-event' && diag.rect) {
           const x = Math.round(diag.rect.left + diag.rect.width * ratio);
           const y = Math.round(diag.rect.top + diag.rect.height / 2);
+          await wait(80);
           sendTrustedClick(x, y);
           console.log('[VK Player] sent trusted click at', x, y);
+          await wait(150);
         }
       })
-      .catch(err => console.error('[VK Player] seek error:', err));
+      .catch(err => console.error('[VK Player] seek error:', err))
+      .finally(() => endAutomation(manual));
     setTimeout(() => { seeking = false; }, 400);
   }
   trackEl.addEventListener('mousedown', (e) => {
@@ -636,17 +643,21 @@ function setupVolume(trackEl, fillEl) {
     document.removeEventListener('mouseup', onUp);
     trackEl.classList.remove('seeking');
     const ratio = ratioFromEvent(e);
+    const manual = beginAutomation();
     webview.executeJavaScript(volumeSeekScript(ratio))
-      .then(raw => {
+      .then(async raw => {
         const diag = JSON.parse(raw);
         console.log('[VK Player] volume diag:', diag);
         if (diag.method === 'input-event' && diag.rect) {
           const x = Math.round(diag.rect.left + diag.rect.width * ratio);
           const y = Math.round(diag.rect.top + diag.rect.height / 2);
+          await wait(80);
           sendTrustedClick(x, y);
+          await wait(150);
         }
       })
-      .catch(err => console.error('[VK Player] volume error:', err));
+      .catch(err => console.error('[VK Player] volume error:', err))
+      .finally(() => endAutomation(manual));
     setTimeout(() => { volumeDragging = false; }, 400);
   }
   trackEl.addEventListener('mousedown', (e) => {
@@ -659,16 +670,20 @@ function setupVolume(trackEl, fillEl) {
 
   // Колёсико над зоной громкости: шаг 5%
   function applyVolume(ratio) {
+    const manual = beginAutomation();
     webview.executeJavaScript(volumeSeekScript(ratio))
-      .then(raw => {
+      .then(async raw => {
         const diag = JSON.parse(raw);
         if (diag.method === 'input-event' && diag.rect) {
           const x = Math.round(diag.rect.left + diag.rect.width * ratio);
           const y = Math.round(diag.rect.top + diag.rect.height / 2);
+          await wait(80);
           sendTrustedClick(x, y);
+          await wait(150);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => endAutomation(manual));
   }
   const wheelZone = trackEl.parentElement; // #volume-control: кнопка mute + дорожка
   wheelZone.addEventListener('wheel', (e) => {
