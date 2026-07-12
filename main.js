@@ -99,6 +99,10 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
 });
 
+// Версия — читается из package.json, показывается в титулбаре (чтобы было
+// видно, какая сборка установлена, при сравнении с релизами на GitHub).
+ipcMain.handle('get-app-version', () => app.getVersion());
+
 // IPC для кастомной рамки окна (свернуть/развернуть/закрыть)
 ipcMain.on('open-app-devtools', () => {
   if (mainWindow) mainWindow.webContents.openDevTools({ mode: 'detach' });

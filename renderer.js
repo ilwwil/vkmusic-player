@@ -3,6 +3,14 @@
 // views/mymusic.js. Здесь только то, что общее для всего приложения.
 const { webview, contentEl, SELECTORS, pickHelper, sendTrustedClick, wait, beginAutomation, endAutomation } = window.Shared;
 
+// ---------- Версия в титулбаре и заголовке окна ----------
+// Чтобы при разборе багов было видно, какая именно сборка установлена, а не
+// гадать по дате скачивания.
+window.app.getVersion().then((v) => {
+  document.getElementById('titlebar-version').textContent = `v${v}`;
+  document.title = `VK Music Player (unofficial) v${v}`;
+});
+
 // ---------- Кастомная рамка окна ----------
 document.getElementById('btn-min').onclick = () => window.app.windowControl('minimize');
 document.getElementById('btn-max').onclick = () => window.app.windowControl('maximize');
