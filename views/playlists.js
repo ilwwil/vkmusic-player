@@ -27,7 +27,7 @@ window.PlaylistsView = (function () {
         const q = () => document.querySelectorAll('[data-testid="music_playlist_item_block"]');
         if (q().length) return q();
         const tab = pick(sel.catalogTabAllMusic);
-        if (tab) tab.click();
+        if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
         const sec = await waitFor(() => document.querySelector('[data-testid="AudioCatalog_SectionPlaylists"]'), 4000);
         if (!sec) return null;
         const link = sec.querySelector('[data-testid="AudioCatalogTextLinkAction"]');

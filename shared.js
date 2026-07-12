@@ -196,6 +196,15 @@ window.Shared = (function () {
   // возвращённым координатам, 3) проверяем, не осталась ли кнопка play/pause на
   // паузе, и если да — доверенно кликаем и по ней, 4) прячем VK обратно.
   // Возвращает { ok, reason? }.
+  //
+  // ВАЖНО: у кнопки play на строке трека (MusicTrackRow_PlaybackControls)
+  // оверлей с иконкой play смонтирован в DOM всегда, но до наведения курсора
+  // имеет opacity:0 и pointer-events:none (чисто CSS-раскрытие на hover, в
+  // отличие от кнопок дизлайка/удаления, которые React вообще не монтирует
+  // без hover — см. комментарий у rowHoverPointScript в mymusic.js). Клик без
+  // предварительного доверенного mouseMove проходит "мимо" — событие уходит
+  // на нижележащий элемент (обложку), трек не запускается, а видимых ошибок
+  // нет. Поэтому здесь ОБЯЗАТЕЛЬНО наводим курсор перед каждым кликом.
   async function playViaTrustedClick(selectScript) {
     showCurtain('Запускаю…');
     const manual = beginAutomation();
@@ -205,14 +214,18 @@ window.Shared = (function () {
       const res = JSON.parse(raw);
       if (!res.ok) return { ok: false, reason: res.reason };
       if (res.needsTrustedClick) {
+        sendTrustedHover(Math.round(res.x), Math.round(res.y));
+        await wait(220); // дать CSS-переходу hover раскрыть оверлей play
         sendTrustedClick(Math.round(res.x), Math.round(res.y));
-        await wait(600); // дать треку загрузиться перед проверкой play/pause
-        const stateRaw = await webview.executeJavaScript(checkPlayNeededScript());
-        const state = JSON.parse(stateRaw);
-        if (state.found && state.isPaused) {
-          sendTrustedClick(Math.round(state.x), Math.round(state.y));
-          await wait(300);
-        }
+        // VK буферизует новый трек ~1.2-1.8с (замерено). Раньше здесь была
+        // проверка "не осталась ли кнопка play/pause на паузе" с доводящим
+        // кликом — но именно она и ломала переключение: посреди буферизации
+        // кнопка на короткое время показывает "пауза", проверка попадала в
+        // этот момент и жала "продолжить", сбивая только что запущенный
+        // трек (даже с debounce на 2 проверки подряд). Замер показал: без
+        // доводящего клика — просто с запасом ждать — трек стабильно
+        // переключается сам. Так что просто ждём.
+        await wait(2000);
       }
       return { ok: true };
     } catch (err) {

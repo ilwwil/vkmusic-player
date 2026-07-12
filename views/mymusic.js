@@ -110,7 +110,7 @@ window.MyMusicView = (function () {
           });
         }
         const tab = pick(sel.catalogTabAllMusic);
-        if (tab) tab.click();
+        if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
         const rows = await waitFor(() => {
           const list = document.querySelectorAll('[data-testid="AudioCatalog_SectionTracks"] [data-testid="MusicTrackRow"]');
           return list.length ? list : null;

@@ -30,7 +30,7 @@ window.HomeView = (function () {
         try {
           if ('${action}' === 'mix') {
             const tab = pick(sel.catalogTabGeneral);
-            if (tab) tab.click();
+            if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
             const btn = await waitFor(() => pick(sel.mixToggleButton), 3000);
             if (!btn) return JSON.stringify({ ok: false, reason: 'mix-button-not-found' });
             btn.click();
@@ -38,7 +38,7 @@ window.HomeView = (function () {
           }
           if ('${action}' === 'shuffle') {
             const tab = pick(sel.catalogTabAllMusic);
-            if (tab) tab.click();
+            if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
             // ВАЖНО: "Моя музыка" содержит несколько блоков с одинаковым компонентом
             // MusicTrackRow — "Недавно прослушанные", плейлисты, "Друзья слушают" и
             // сам список "Треки" (данные всей библиотеки). Без явного скоупинга по
@@ -135,7 +135,7 @@ window.HomeView = (function () {
         }
         try {
           const tab = pick(sel.catalogTabAllMusic);
-          if (tab) tab.click();
+          if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
           const tracksRows = await waitFor(() => {
             const list = document.querySelectorAll('[data-testid="AudioCatalog_SectionTracks"] [data-testid="MusicTrackRow"]');
             return list.length ? list : null;
@@ -174,8 +174,16 @@ window.HomeView = (function () {
           });
         }
         try {
+          // Клик по табу, даже когда он и так активен ("aria-selected"),
+          // заставляет VK молча пересобрать секцию "Треки" — список на миг
+          // подменяется (сброс догрузки бесконечным скроллом + локальный
+          // микс/радио-виджет протискивает свой текущий трек в ту же DOM-
+          // позицию). Наш rows[index] считался ДО пересборки и попадал по
+          // координатам уже на подменённый элемент — трек играл не тот, что
+          // выбрали, без единой ошибки в логах. Кликаем по табу, только если
+          // он реально неактивен.
           const tab = pick(sel.catalogTabAllMusic);
-          if (tab) tab.click();
+          if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
           const rows = await waitFor(() => {
             let list;
             if (${JSON.stringify(scope)} === 'recent') {
