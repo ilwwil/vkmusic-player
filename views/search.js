@@ -8,7 +8,7 @@
 // Глобальная строка сверху (по макету) — единая точка входа: там живут
 // история запросов и живые подсказки VK; submit переключает на раздел Поиск.
 window.SearchView = (function () {
-  const { webview, contentEl, wait, ensureBasePage, playViaTrustedClick, sendTrustedClick, beginAutomation, endAutomation } = window.Shared;
+  const { webview, contentEl, wait, ensureBasePage, playViaTrustedClick, sendTrustedClick, beginAutomation, endAutomation, modalScrapeScript } = window.Shared;
 
   function submitQueryHelper() {
     return `
@@ -110,6 +110,7 @@ window.SearchView = (function () {
           const img = cell.querySelector('img');
           return {
             name: link ? link.textContent.trim() : '',
+            href: link ? link.getAttribute('href') : '',
             photo: img ? img.src : ''
           };
         }).filter(ar => ar.name);
@@ -544,8 +545,79 @@ window.SearchView = (function () {
     return card;
   }
 
-  // Альбомы и музыканты — витрина; клик запускает новый поиск по названию
-  // (открытие страниц альбома/артиста у нас пока нет — см. отчёт по дизайну)
+  // Альбом из поиска открывается той же модалкой VK (MusicPlaylistModal), что
+  // и пользовательские плейлисты — переиспользуем готовую карточку деталей
+  // из PlaylistsView, только сами находим и кликаем нужную карточку в текущих
+  // результатах поиска (без перехода на отдельную страницу плейлистов).
+  function openAlbumScript(index) {
+    return `
+      (async function() {
+        function waitFor(fn, timeoutMs) {
+          return new Promise(resolve => {
+            const start = Date.now();
+            (function poll() {
+              const el = fn();
+              if (el) return resolve(el);
+              if (Date.now() - start > timeoutMs) return resolve(null);
+              setTimeout(poll, 100);
+            })();
+          });
+        }
+        try {
+          const oldClose = document.querySelector('[data-testid="MusicPlaylistModal_Close"]');
+          if (oldClose) { oldClose.click(); await new Promise(r => setTimeout(r, 300)); }
+          const items = document.querySelectorAll('[data-testid="AudioCatalog_SectionAlbums"] [data-testid="music-playlists-slider-block-item"]');
+          const item = items[${index}];
+          if (!item) return JSON.stringify({ ok: false, reason: 'album-not-found' });
+          item.scrollIntoView({ block: 'center', inline: 'center' });
+          const titleEl = await waitFor(() => item.querySelector('[data-testid="MusicPlaylistItem_Title"]'), 3000);
+          if (!titleEl) return JSON.stringify({ ok: false, reason: 'album-title-not-found' });
+          let header = null;
+          for (let attempt = 0; attempt < 3 && !header; attempt++) {
+            titleEl.click();
+            header = await waitFor(() => document.querySelector('[data-testid="MusicPlaylistModal_Header"]'), 1500 + attempt * 700);
+          }
+          if (!header) return JSON.stringify({ ok: false, reason: 'modal-not-opened' });
+          ${modalScrapeScript()}
+        } catch (e) {
+          return JSON.stringify({ ok: false, reason: String(e) });
+        }
+      })();
+    `;
+  }
+
+  // Показать деталь альбома/плейлиста поверх поиска: временно подменяем
+  // видимый app-view на #playlists-view (там живёт вёрстка карточки деталей)
+  // и активный пункт навигации — "Назад" возвращает обе подмены обратно.
+  function openAlbumDetail(al, index) {
+    const searchNav = document.querySelector('.nav-item[data-view="search"]');
+    const playlistsNav = document.querySelector('.nav-item[data-view="playlists"]');
+    document.querySelectorAll('.nav-item[data-view]').forEach(b => b.classList.toggle('active', b === playlistsNav));
+    document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('hidden', v.id !== 'playlists-view'));
+    window.PlaylistsView.openExternalCard(
+      { title: al.title, cover: al.cover },
+      openAlbumScript(index),
+      () => {
+        document.querySelectorAll('.nav-item[data-view]').forEach(b => b.classList.toggle('active', b === searchNav));
+        document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('hidden', v.id !== 'search-view'));
+      }
+    );
+  }
+
+  function openArtistDetail(ar) {
+    window.ArtistView.openArtist(ar, () => {
+      const searchNav = document.querySelector('.nav-item[data-view="search"]');
+      document.querySelectorAll('.nav-item[data-view]').forEach(b => b.classList.toggle('active', b === searchNav));
+      document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('hidden', v.id !== 'search-view'));
+      // Артист мог увести VK со страницы результатов поиска (переход по SPA,
+      // хлебная крошка возвращает на базовый каталог, а не назад в поиск) —
+      // без пересборки результатов клики по нашему (ещё показанному) списку
+      // результатов будут бить мимо. Раз запрос уже известен — просто
+      // повторяем его тихо.
+      if (lastQuery) doSearch();
+    });
+  }
+
   function renderAlbums(albums) {
     if (!albums.length) return null;
     const card = document.createElement('div');
@@ -556,7 +628,7 @@ window.SearchView = (function () {
     card.appendChild(title);
     const strip = document.createElement('div');
     strip.className = 'search-carousel';
-    albums.forEach(al => {
+    albums.forEach((al, index) => {
       const item = document.createElement('button');
       item.className = 'search-album';
       item.innerHTML = `
@@ -568,10 +640,7 @@ window.SearchView = (function () {
       if (al.cover) img.src = al.cover;
       item.querySelector('.search-album-title').textContent = al.title;
       item.querySelector('.search-album-sub').textContent = [al.author, al.year].filter(Boolean).join(' · ');
-      item.addEventListener('click', () => {
-        searchInputEl.value = `${al.author} ${al.title}`.trim();
-        doSearch();
-      });
+      item.addEventListener('click', () => openAlbumDetail(al, index));
       strip.appendChild(item);
     });
     card.appendChild(strip);
@@ -598,10 +667,7 @@ window.SearchView = (function () {
       const img = item.querySelector('.search-artist-photo');
       if (ar.photo) img.src = ar.photo;
       item.querySelector('.search-artist-name').textContent = ar.name;
-      item.addEventListener('click', () => {
-        searchInputEl.value = ar.name;
-        doSearch();
-      });
+      item.addEventListener('click', () => openArtistDetail(ar));
       strip.appendChild(item);
     });
     card.appendChild(strip);

@@ -704,6 +704,31 @@ button.section-title:hover { color: rgba(255,255,255,0.7); }
 .plcard-row-artist { font-size: 12.5px; font-weight: 500; color: var(--text-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plcard-row-duration { font-size: 12px; font-weight: 600; color: var(--text-dim); flex: 0 0 auto; }
 
+/* ---------- Страница артиста ---------- */
+#artist-view {
+  padding: 30px 40px 36px; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+#artist-back { margin-bottom: 18px; }
+#artist-hero {
+  position: relative; height: 220px; border-radius: 20px; overflow: hidden;
+  margin-bottom: 26px; flex: 0 0 auto; background: var(--panel-2);
+}
+#artist-hero-bg {
+  position: absolute; inset: 0; background-size: cover; background-position: center;
+}
+#artist-hero-shade {
+  position: absolute; inset: 0;
+  background: linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.15) 100%);
+}
+#artist-hero-name {
+  position: absolute; left: 28px; bottom: 22px; z-index: 1;
+  font-size: 30px; font-weight: 800; letter-spacing: -0.6px; color: #fff;
+}
+#artist-status { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; flex: 0 0 auto; min-height: 14px; }
+#artist-body { max-width: 900px; display: flex; flex-direction: column; gap: 30px; }
+#artist-popular-list.search-track-grid { max-width: none; }
+
 /* ---------- Тост автоматизации ---------- */
 #vk-curtain {
   position: absolute; left: 50%; bottom: 80px;

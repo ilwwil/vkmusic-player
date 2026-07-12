@@ -20,14 +20,21 @@ document.querySelectorAll('.nav-item[data-url]').forEach(btn => {
 // ---------- Сайдбар: переключение наших собственных разделов ----------
 document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
   btn.addEventListener('click', () => {
+    // Безусловно и первым делом: альбом/артист из поиска открываются поверх
+    // текущего раздела через служебные экраны "Плейлисты"/"Страница артиста"
+    // без настоящего клика по пункту навигации (см. views/search.js) — если
+    // после этого пользователь жмёт РЕАЛЬНЫЙ пункт меню (в т.ч. те же
+    // "Плейлисты"), эти экраны нужно сначала честно закрыть, иначе останется
+    // висеть чужая карточка вместо своего содержимого раздела. Обе функции
+    // no-op, если ничего такого не открыто.
+    window.PlaylistsView.closeCard();
+    window.ArtistView.closeIfOpenSilently();
     document.querySelectorAll('.nav-item[data-view]').forEach(b => b.classList.toggle('active', b === btn));
     document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('hidden', v.id !== `${btn.dataset.view}-view`));
     if (btn.dataset.view === 'home') window.HomeView.loadHome();
     if (btn.dataset.view === 'mymusic') window.MyMusicView.loadMyMusic();
     if (btn.dataset.view === 'playlists') window.PlaylistsView.loadPlaylists();
     if (btn.dataset.view === 'search') window.SearchView.focus();
-    // При уходе из "Плейлистов" закрываем нашу карточку и модалку в VK
-    if (btn.dataset.view !== 'playlists') window.PlaylistsView.closeCard();
     // При уходе из "Поиска" сбрасываем поиск в VK — иначе каталог остаётся в
     // режиме результатов и секция "Треки" моей библиотеки недоступна
     if (btn.dataset.view !== 'search') window.SearchView.reset();

@@ -5,7 +5,7 @@
 // источник списка треков и мишень для доверенных кликов, а пользователю
 // показываем собственную карточку в стиле приложения.
 window.PlaylistsView = (function () {
-  const { webview, SELECTORS, pickHelper, wait, ensureBasePage, playViaTrustedClick } = window.Shared;
+  const { webview, SELECTORS, pickHelper, wait, ensureBasePage, playViaTrustedClick, modalScrapeScript, closeModalScript } = window.Shared;
 
   // Странице плейлистов (block=my_playlists) не мешает сама по себе — а вот
   // остаточный q= от поиска ломает её: клики по названиям перестают открывать
@@ -143,76 +143,7 @@ window.PlaylistsView = (function () {
           header = await waitFor(() => document.querySelector('[data-testid="MusicPlaylistModal_Header"]'), 1500 + attempt * 700);
         }
         if (!header) return JSON.stringify({ ok: false, reason: 'modal-not-opened' });
-        const modal = header.closest('.vkitInternalModalBox') || document;
-        // Трекам модалки нужно мгновение на отрисовку
-        let rows = await waitFor(() => {
-          const list = modal.querySelectorAll('[data-testid="MusicTrackRow"]');
-          return list.length ? list : null;
-        }, 3000);
-        // Длинные списки VK сворачивает за кнопкой "Показать все" — раскрываем.
-        // ВАЖНО: кнопка исчезает сразу по клику, а строки приезжают позже
-        // (асинхронная подгрузка) — ждать "кнопка пропала" недостаточно,
-        // ждём фактического роста списка и затем его стабилизации.
-        const countRows = () => modal.querySelectorAll('[data-testid="MusicTrackRow"]').length;
-        let expanded = false;
-        for (let i = 0; i < 6; i++) {
-          const expand = modal.querySelector('[data-testid="audiolistitems-expandbutton"]');
-          if (!expand) break;
-          const before = countRows();
-          expand.click();
-          expanded = true;
-          await waitFor(() => countRows() > before ? true : null, 4000);
-        }
-        if (expanded) {
-          let prev = countRows();
-          for (let i = 0; i < 10; i++) {
-            await new Promise(r => setTimeout(r, 500));
-            const n = countRows();
-            if (n === prev) break;
-            prev = n;
-          }
-        }
-        rows = modal.querySelectorAll('[data-testid="MusicTrackRow"]');
-        if (!rows.length) rows = null;
-        const titleNode = modal.querySelector('[data-testid="MusicPlaylistModal_Title"]');
-        // У пользовательских плейлистов авторы/подзаголовок под другими testid,
-        // чем у альбомов (AudioList_Author + ...headerinfo-subtitle с "обновлён...")
-        const authorsNode = modal.querySelector('[data-testid="MusicAlbumPlaylist_Authors"]')
-          || modal.querySelector('[data-testid="AudioList_Author"]');
-        const subNode = modal.querySelector('[data-testid="MusicAlbumPlaylist_Subtitle"]')
-          || modal.querySelector('[data-testid="musicplaylistmodalheaderinfo-subtitle"]');
-        // Блок статистики над списком: "Треки 20" + "35,2K прослушиваний·58 минут"
-        const statCountNode = modal.querySelector('[data-testid="musicplayliststatistics-count"]');
-        const statSubNode = modal.querySelector('[data-testid="musicplayliststatistics-subtitle"]');
-        const tracks = rows ? Array.from(rows).map((row, i) => {
-          const img = row.querySelector('img');
-          return {
-            index: i,
-            title: (row.querySelector('[data-testid="MusicTrackRow_Title"]') || {}).textContent || '',
-            artist: (row.querySelector('[data-testid="MusicTrackRow_Authors"]') || {}).textContent || '',
-            duration: ((row.querySelector('[data-testid="MusicTrackRow_Duration"]') || {}).textContent || '').trim(),
-            cover: img ? img.src : ''
-          };
-        }) : [];
-        return JSON.stringify({
-          ok: true,
-          title: titleNode ? titleNode.textContent.trim() : '',
-          authors: authorsNode ? authorsNode.textContent.trim() : '',
-          subtitle: subNode ? subNode.textContent.trim() : '',
-          trackCount: statCountNode ? statCountNode.textContent.trim() : '',
-          stats: statSubNode ? statSubNode.textContent.trim() : '',
-          tracks
-        });
-      })();
-    `;
-  }
-
-  function closePlaylistScript() {
-    return `
-      (function() {
-        const btn = document.querySelector('[data-testid="MusicPlaylistModal_Close"]');
-        if (btn) btn.click();
-        return JSON.stringify({ ok: !!btn });
+        ${modalScrapeScript()}
       })();
     `;
   }
@@ -421,15 +352,69 @@ window.PlaylistsView = (function () {
     }
   }
 
+  // Открыть карточку деталей плейлиста/альбома извне (не из своей сетки) —
+  // используется поиском и страницей артиста для показа альбома в том же
+  // визуальном стиле, без дублирования вёрстки/скрейпа модалки. `openScript`
+  // — готовый скрипт, который сам находит нужную карточку в текущем DOM VK
+  // (в поиске/на странице артиста) и открывает модалку. `onBack` вызывается
+  // вместо стандартного возврата к сетке плейлистов — им вызывающая сторона
+  // возвращает видимость своего экрана.
+  let externalOnBack = null;
+  async function openExternalCard(item, openScript, onBack) {
+    cardOpen = true;
+    externalOnBack = onBack;
+    // Явно прячем остальные app-view (не только показываем свой): вызывающая
+    // сторона могла оставить видимым экран-источник (например #artist-view)
+    // — оба они position:absolute;inset:0 и позже в DOM, поэтому без этого
+    // могли бы наложиться друг на друга.
+    document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('hidden', v.id !== 'playlists-view'));
+    homeEl.classList.add('hidden');
+    detailEl.classList.remove('hidden');
+    document.getElementById('plcard-back-label').textContent = 'Назад';
+    cardCoverEl.style.backgroundImage = item.cover ? `url("${item.cover}")` : '';
+    cardTitleEl.textContent = item.title;
+    cardSubEl.textContent = '';
+    cardStatsEl.textContent = '';
+    cardTracksEl.innerHTML = '';
+    cardStatusEl.textContent = 'Загружаю…';
+    modalReadyPromise = (async () => {
+      const raw = await webview.executeJavaScript(openScript);
+      return JSON.parse(raw);
+    })();
+    try {
+      const res = await modalReadyPromise;
+      if (!cardOpen) return;
+      if (!res.ok) { cardStatusEl.textContent = 'Не удалось: ' + res.reason; return; }
+      renderCard(item, res);
+    } catch (err) {
+      cardStatusEl.textContent = 'Ошибка: ' + err.message;
+    }
+  }
+
+  // Общая очистка — вызывается и переключателем разделов в renderer.js (при
+  // уходе со страницы "Плейлисты" каким угодно способом), и нашей кнопкой
+  // "Назад". Видимость СВОЕГО экрана (сетка плейлистов) здесь безопасный
+  // дефолт: если уходим в другой раздел, весь #playlists-view и так сейчас
+  // скрывается переключателем разделов, а какой именно под-экран внутри
+  // него активен — уже не видно и не важно. Возврат к экрану-источнику
+  // внешней карточки (поиск/артист) — отдельная забота кнопки "Назад" ниже,
+  // не этой функции, иначе она будет конфликтовать с обычным переключением
+  // разделов (перетягивать видимость на себя поверх выбранного пользователем раздела).
   async function closeCard() {
     if (!cardOpen) return;
     cardOpen = false;
     detailEl.classList.add('hidden');
+    externalOnBack = null;
+    try { await webview.executeJavaScript(closeModalScript()); } catch (e) { /* VK мог сам закрыть */ }
+    document.getElementById('plcard-back-label').textContent = 'Плейлисты';
     homeEl.classList.remove('hidden');
-    try { await webview.executeJavaScript(closePlaylistScript()); } catch (e) { /* VK мог сам закрыть */ }
   }
 
-  document.getElementById('plcard-back').addEventListener('click', closeCard);
+  document.getElementById('plcard-back').addEventListener('click', () => {
+    const backFn = externalOnBack;
+    closeCard();
+    if (backFn) backFn();
+  });
 
   // Локальный фильтр по сетке — данные уже в памяти, VK не трогаем
   const filterEl = document.getElementById('playlists-filter');
@@ -465,5 +450,5 @@ window.PlaylistsView = (function () {
     });
   });
 
-  return { loadPlaylists, closeCard };
+  return { loadPlaylists, closeCard, openExternalCard };
 })();

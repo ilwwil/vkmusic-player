@@ -119,9 +119,10 @@ window.Shared = (function () {
     `;
   }
   // Сначала пробуем SPA-пути — они НЕ прерывают текущее воспроизведение:
-  // q= снимается кнопкой очистки поиска, block=my_playlists — кликом по
-  // хлебной крошке "Моя музыка" (a[data-testid=breadcrumb]). Полная
-  // перезагрузка (loadURL) — только крайний случай: она убивает плеер VK.
+  // q= снимается кнопкой очистки поиска, а страница плейлиста (block=) и
+  // страница артиста (/artist/slug) — кликом по хлебной крошке "Музыка"
+  // (a[data-testid=breadcrumb]; она есть на обеих). Полная перезагрузка
+  // (loadURL) — только крайний случай: она убивает плеер VK.
   function spaCleanupScript() {
     return `
       (function() {
@@ -129,10 +130,8 @@ window.Shared = (function () {
           const clear = document.querySelector('[data-testid="search_audio_clear"]');
           if (clear) { clear.click(); return 'clear'; }
         }
-        if (/[?&]block=/.test(location.href)) {
-          const crumb = document.querySelector('a[data-testid="breadcrumb"]');
-          if (crumb) { crumb.click(); return 'crumb'; }
-        }
+        const crumb = document.querySelector('a[data-testid="breadcrumb"]');
+        if (crumb) { crumb.click(); return 'crumb'; }
         return 'none';
       })();
     `;
@@ -236,11 +235,89 @@ window.Shared = (function () {
     }
   }
 
+  // Общий хвост скрипта открытия модалки плейлиста/альбома VK
+  // (MusicPlaylistModal): раскрыть длинный список кнопкой "Показать все" и
+  // собрать шапку+треки. И пользовательские плейлисты (playlists.js), и
+  // альбомы из поиска/со страницы артиста (search.js) используют один и тот
+  // же компонент модалки VK — отличается только то, как открывается сама
+  // модалка (какую карточку кликнуть), этот хвост общий для всех. Ожидает,
+  // что вызывающий скрипт уже определил `waitFor` и подтверждённый `header`
+  // (результат клика по карточке, дождавшийся MusicPlaylistModal_Header).
+  function modalScrapeScript() {
+    return `
+      const modal = header.closest('.vkitInternalModalBox') || document;
+      let rows = await waitFor(() => {
+        const list = modal.querySelectorAll('[data-testid="MusicTrackRow"]');
+        return list.length ? list : null;
+      }, 3000);
+      const countRows = () => modal.querySelectorAll('[data-testid="MusicTrackRow"]').length;
+      let expanded = false;
+      for (let i = 0; i < 6; i++) {
+        const expand = modal.querySelector('[data-testid="audiolistitems-expandbutton"]');
+        if (!expand) break;
+        const before = countRows();
+        expand.click();
+        expanded = true;
+        await waitFor(() => countRows() > before ? true : null, 4000);
+      }
+      if (expanded) {
+        let prev = countRows();
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 500));
+          const n = countRows();
+          if (n === prev) break;
+          prev = n;
+        }
+      }
+      rows = modal.querySelectorAll('[data-testid="MusicTrackRow"]');
+      if (!rows.length) rows = null;
+      const titleNode = modal.querySelector('[data-testid="MusicPlaylistModal_Title"]');
+      const authorsNode = modal.querySelector('[data-testid="MusicAlbumPlaylist_Authors"]')
+        || modal.querySelector('[data-testid="AudioList_Author"]');
+      const subNode = modal.querySelector('[data-testid="MusicAlbumPlaylist_Subtitle"]')
+        || modal.querySelector('[data-testid="musicplaylistmodalheaderinfo-subtitle"]');
+      const statCountNode = modal.querySelector('[data-testid="musicplayliststatistics-count"]');
+      const statSubNode = modal.querySelector('[data-testid="musicplayliststatistics-subtitle"]');
+      const tracks = rows ? Array.from(rows).map((row, i) => {
+        const img = row.querySelector('img');
+        return {
+          index: i,
+          title: (row.querySelector('[data-testid="MusicTrackRow_Title"]') || {}).textContent || '',
+          artist: (row.querySelector('[data-testid="MusicTrackRow_Authors"]') || {}).textContent || '',
+          duration: ((row.querySelector('[data-testid="MusicTrackRow_Duration"]') || {}).textContent || '').trim(),
+          cover: img ? img.src : ''
+        };
+      }) : [];
+      return JSON.stringify({
+        ok: true,
+        title: titleNode ? titleNode.textContent.trim() : '',
+        authors: authorsNode ? authorsNode.textContent.trim() : '',
+        subtitle: subNode ? subNode.textContent.trim() : '',
+        trackCount: statCountNode ? statCountNode.textContent.trim() : '',
+        stats: statSubNode ? statSubNode.textContent.trim() : '',
+        tracks
+      });
+    `;
+  }
+
+  // Закрыть модалку плейлиста/альбома VK, если она открыта — общий геттер
+  // для playlists.js и search.js.
+  function closeModalScript() {
+    return `
+      (function() {
+        const btn = document.querySelector('[data-testid="MusicPlaylistModal_Close"]');
+        if (btn) btn.click();
+        return JSON.stringify({ ok: !!btn });
+      })();
+    `;
+  }
+
   return {
     webview, contentEl, SELECTORS,
     pickHelper, coverHelper, sendTrustedClick, sendTrustedHover, wait,
     ensureBasePage,
     checkPlayNeededScript, playViaTrustedClick,
+    modalScrapeScript, closeModalScript,
     showCurtain, hideCurtain,
     beginAutomation, endAutomation
   };

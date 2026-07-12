@@ -167,7 +167,7 @@
           <!-- Экран 2: страница плейлиста (VK-модалка при этом открыта в
                скрытом webview и служит источником данных/мишенью для кликов) -->
           <div id="playlist-detail" class="hidden">
-            <button id="plcard-back" class="detail-back-btn"><svg viewBox="0 0 24 24"><path d="m10.8 12l3.9 3.9q.275.275.275.7t-.275.7t-.7.275t-.7-.275l-4.6-4.6q-.15-.15-.212-.325T8.425 12t.063-.375t.212-.325l4.6-4.6q.275-.275.7-.275t.7.275t.275.7t-.275.7z"/></svg> Плейлисты</button>
+            <button id="plcard-back" class="detail-back-btn"><svg viewBox="0 0 24 24"><path d="m10.8 12l3.9 3.9q.275.275.275.7t-.275.7t-.7.275t-.7-.275l-4.6-4.6q-.15-.15-.212-.325T8.425 12t.063-.375t.212-.325l4.6-4.6q.275-.275.7-.275t.7.275t.275.7t-.275.7z"/></svg> <span id="plcard-back-label">Плейлисты</span></button>
             <div id="plcard-header">
               <div id="plcard-cover"></div>
               <div id="plcard-info">
@@ -183,6 +183,28 @@
             </div>
             <div id="plcard-status"></div>
             <div id="plcard-tracks"></div>
+          </div>
+        </div>
+
+        <!-- Страница артиста: открывается SPA-переходом по ссылке из поиска
+             (не рвёт воспроизведение), назад — по хлебной крошке VK "Музыка" -->
+        <div id="artist-view" class="app-view hidden">
+          <button id="artist-back" class="detail-back-btn"><svg viewBox="0 0 24 24"><path d="m10.8 12l3.9 3.9q.275.275.275.7t-.275.7t-.7.275t-.7-.275l-4.6-4.6q-.15-.15-.212-.325T8.425 12t.063-.375t.212-.325l4.6-4.6q.275-.275.7-.275t.7.275t.275.7t-.275.7z"/></svg> Назад</button>
+          <div id="artist-hero">
+            <div id="artist-hero-bg"></div>
+            <div id="artist-hero-shade"></div>
+            <div id="artist-hero-name"></div>
+          </div>
+          <div id="artist-status"></div>
+          <div id="artist-body">
+            <div id="artist-popular-section" class="hidden">
+              <div class="search-section-title">Популярное</div>
+              <div id="artist-popular-list" class="search-track-grid"></div>
+            </div>
+            <div id="artist-releases-section" class="hidden">
+              <div class="search-section-title">Релизы</div>
+              <div id="artist-releases-list" class="search-carousel"></div>
+            </div>
           </div>
         </div>
         </div>
@@ -293,8 +315,9 @@
   <script src="shared.js"></script>
   <script src="views/home.js"></script>
   <script src="views/mymusic.js"></script>
-  <script src="views/search.js"></script>
   <script src="views/playlists.js"></script>
+  <script src="views/artist.js"></script>
+  <script src="views/search.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
