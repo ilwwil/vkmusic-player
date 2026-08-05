@@ -37,6 +37,7 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
     // no-op, если ничего такого не открыто.
     window.PlaylistsView.closeCard();
     window.ArtistView.closeIfOpenSilently();
+    window.TrackView.closeIfOpenSilently();
     document.querySelectorAll('.nav-item[data-view]').forEach(b => b.classList.toggle('active', b === btn));
     document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('hidden', v.id !== `${btn.dataset.view}-view`));
     if (btn.dataset.view === 'home') window.HomeView.loadHome();
@@ -740,6 +741,16 @@ document.getElementById('cover-mini').addEventListener('click', () => {
   coverLightbox.classList.remove('hidden');
 });
 coverLightbox.addEventListener('click', () => coverLightbox.classList.add('hidden'));
+
+// ---------- Открыть страницу трека (клик по названию в плеере) ----------
+function openTrackView() {
+  if (!lastState || !lastState.title) return; // нечего показывать
+  setExpanded(false);
+  window.dispatchEvent(new CustomEvent('open-track-view'));
+}
+document.getElementById('track-title-mini').addEventListener('click', openTrackView);
+document.getElementById('track-title-full').addEventListener('click', openTrackView);
+
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!coverLightbox.classList.contains('hidden')) { coverLightbox.classList.add('hidden'); return; }

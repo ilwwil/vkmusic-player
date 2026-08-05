@@ -337,6 +337,16 @@ button.section-title:hover { color: rgba(255,255,255,0.7); }
 #home-card-mix .hero-chips div:nth-child(3) { width: 31px; height: 31px; animation: chipBobC 3.6s ease-in-out infinite .36s; }
 #home-card-mix .hero-chips div:nth-child(4) { width: 36px; height: 36px; animation: chipBobD 3.6s ease-in-out infinite .54s; }
 #home-card-mix .hero-chips div:nth-child(5) { width: 33px; height: 33px; animation: chipBobA 3.6s ease-in-out infinite .72s; }
+#home-mix-configure-btn {
+  position: absolute; right: 16px; bottom: 14px; height: 32px;
+  border-radius: 999px; background: rgba(255,255,255,0.08); border: none;
+  color: rgba(255,255,255,0.7); display: flex; align-items: center; gap: 6px;
+  padding: 0 14px 0 10px; cursor: pointer; z-index: 1;
+  transition: background .15s ease, color .15s ease;
+  font-family: inherit; font-size: 12.5px; font-weight: 600;
+}
+#home-mix-configure-btn svg { width: 16px; height: 16px; fill: currentColor; flex: 0 0 auto; }
+#home-mix-configure-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
 
 /* Баннеры под хиро */
 .home-cards { display: flex; gap: 16px; }
@@ -727,6 +737,53 @@ button.section-title:hover { color: rgba(255,255,255,0.7); }
 }
 #artist-status { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; flex: 0 0 auto; min-height: 14px; }
 #artist-body { max-width: 900px; display: flex; flex-direction: column; gap: 30px; }
+
+/* ---------- Страница трека ---------- */
+#track-view { padding: 36px 40px; overflow-y: auto; }
+#track-back { margin-bottom: 24px; }
+#track-hero { display: flex; gap: 26px; align-items: flex-end; flex-wrap: wrap; }
+#track-hero-cover {
+  width: 200px; height: 200px; border-radius: 18px; overflow: hidden;
+  flex: 0 0 auto; background: var(--panel-2);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 50px rgba(var(--accent-rgb),0.2);
+}
+#track-cover-big { width: 100%; height: 100%; object-fit: cover; display: block; }
+#track-hero-info { display: flex; flex-direction: column; gap: 8px; padding-bottom: 6px; min-width: 0; }
+#track-title-big { font-size: 30px; font-weight: 800; letter-spacing: -0.6px; }
+#track-artist-big {
+  background: none; border: none; color: var(--text-mid); font-size: 14px; font-weight: 600;
+  text-align: left; padding: 0; cursor: pointer; align-self: flex-start;
+  font-family: inherit; transition: color .15s ease;
+}
+#track-artist-big:hover { color: #fff; }
+#track-artist-big:empty { display: none; }
+#track-hero-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.track-action-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--accent); border: none; border-radius: 999px; color: #000;
+  font-size: 14px; font-weight: 800; padding: 11px 22px; cursor: pointer;
+  font-family: inherit; transition: transform .15s ease;
+}
+.track-action-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.track-action-btn:hover { transform: scale(1.04); }
+.track-action-btn:active { transform: scale(0.97); }
+/* .btn-playpause (кнопка мини-плеера) задаёт круглые 38x38 и белый фон —
+   переопределяем здесь, эта кнопка нужна только ради общей синхронизации
+   иконки play/pause из renderer.js, форма своя, пилюльная */
+.track-action-btn.btn-playpause {
+  width: auto; height: auto; background: var(--accent); color: #000; font-size: inherit;
+}
+.track-action-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255,255,255,0.08); border: none; color: #fff; cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.track-action-icon svg { width: 17px; height: 17px; fill: currentColor; }
+.track-action-icon:hover { background: rgba(255,255,255,0.14); }
+.track-action-icon.btn-like { color: var(--accent); background: transparent; }
+.track-action-icon.btn-like:hover { background: rgba(255,255,255,0.08); }
+#track-status { font-size: 12px; color: var(--text-dim); margin-top: 22px; min-height: 14px; }
 #artist-popular-list.search-track-grid { max-width: none; }
 
 /* ---------- Тост автоматизации ---------- */
@@ -811,7 +868,8 @@ body.player-expanded #player-bar { display: none; }
   box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.3);
 }
 #track-info-mini { min-width: 0; }
-#track-title-mini { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#track-title-mini { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+#track-title-mini:hover { text-decoration: underline; }
 #track-artist-mini { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Эквалайзер у названия — оживает только когда трек играет */
 #eq-mini { display: none; align-items: flex-end; gap: 2px; height: 16px; margin-left: 4px; flex: 0 0 auto; }
@@ -886,6 +944,48 @@ body.player-expanded #player-bar { display: none; }
 #cover-lightbox-title { margin-top: 18px; font-size: 20px; font-weight: 800; letter-spacing: -0.3px; }
 #cover-lightbox-artist { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--text-mid); }
 
+/* ---------- Настроить VK Микс ---------- */
+#mix-settings-modal {
+  position: fixed; inset: 0; z-index: 101;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  animation: view-in .18s ease;
+}
+#mix-settings-modal.hidden { display: none; }
+#mix-settings-box {
+  width: 460px; max-width: 90vw; max-height: 82vh; overflow-y: auto;
+  background: var(--panel-2); border-radius: 22px; padding: 30px 30px 24px;
+}
+#mix-settings-title { font-size: 21px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 26px; }
+.mix-settings-group { margin-bottom: 26px; }
+.mix-settings-label {
+  font-size: 12px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 12px;
+}
+.mix-settings-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.mix-chip {
+  background: rgba(255,255,255,0.06); border: none; border-radius: 999px;
+  color: #fff; font-size: 14px; font-weight: 600; padding: 11px 20px;
+  cursor: pointer; font-family: inherit; transition: background .15s ease, color .15s ease;
+}
+.mix-chip:hover { background: rgba(255,255,255,0.1); }
+.mix-chip.active { background: var(--accent); color: #000; }
+.mix-chip.active:hover { background: var(--accent); }
+#mix-settings-status { font-size: 12px; color: var(--text-dim); min-height: 14px; margin-bottom: 8px; }
+#mix-settings-actions { display: flex; align-items: center; justify-content: flex-end; gap: 20px; }
+#mix-settings-reset {
+  background: none; border: none; color: var(--text-mid); font-size: 14px; font-weight: 600;
+  cursor: pointer; padding: 8px; font-family: inherit; transition: color .15s ease;
+}
+#mix-settings-reset:hover { color: #fff; }
+#mix-settings-apply {
+  background: var(--accent); border: none; border-radius: 999px; color: #000;
+  font-size: 14px; font-weight: 800; padding: 12px 26px; cursor: pointer;
+  font-family: inherit; transition: transform .15s ease;
+}
+#mix-settings-apply:hover { transform: scale(1.03); }
+#mix-settings-apply:active { transform: scale(0.97); }
+
 /* ---------- Полноэкранный Now Playing ---------- */
 #now-playing-full {
   position: fixed; top: 36px; left: 0; right: 0; bottom: 0;
@@ -918,7 +1018,8 @@ body.player-expanded #player-bar { display: none; }
   background: #131313; z-index: 1;
   box-shadow: 0 30px 90px rgba(0,0,0,0.8), 0 0 60px rgba(var(--accent-rgb),0.25);
 }
-#track-title-full { font-size: 28px; font-weight: 800; letter-spacing: -0.6px; z-index: 1; text-align: center; }
+#track-title-full { font-size: 28px; font-weight: 800; letter-spacing: -0.6px; z-index: 1; text-align: center; cursor: pointer; }
+#track-title-full:hover { text-decoration: underline; }
 #track-artist-full { font-size: 14px; font-weight: 600; color: var(--text-mid); margin-top: -12px; z-index: 1; text-align: center; }
 #progress-row-full { display: flex; align-items: center; gap: 12px; width: 380px; z-index: 1; }
 #progress-track-full {

@@ -71,6 +71,13 @@ window.HomeView = (function () {
     `;
   }
 
+  // "Настроить" сидит внутри кликабельного хиро VK Микс — гасим всплытие,
+  // иначе клик по ней ещё и запускал бы сам Микс.
+  document.getElementById('home-mix-configure-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    window.MixSettings.open();
+  });
+
   const homeStatusEl = document.getElementById('home-status');
   document.querySelectorAll('[data-home-action]').forEach(btn => {
     btn.addEventListener('click', async () => {
