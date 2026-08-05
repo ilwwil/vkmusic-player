@@ -585,7 +585,12 @@ function sendCommand(kind) {
 }
 
 document.querySelectorAll('[data-action]').forEach(btn => {
-  btn.addEventListener('click', () => sendCommand(btn.dataset.action));
+  btn.addEventListener('click', () => {
+    // "Текст песни" — своя панель поверх скрейпленного текста VK, а не
+    // headless-клик по кнопке VK (у которой нет видимого эффекта в нашем UI)
+    if (btn.dataset.action === 'lyrics') { window.LyricsView.toggle(); return; }
+    sendCommand(btn.dataset.action);
+  });
 });
 
 // ---------- Перемотка (seek) кликом/драгом по прогресс-бару ----------

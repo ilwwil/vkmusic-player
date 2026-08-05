@@ -358,6 +358,22 @@
     </div>
   </div>
 
+  <!-- Текст песни -->
+  <div id="lyrics-panel" class="hidden">
+    <div id="lyrics-header">
+      <img id="lyrics-cover" src="" alt="">
+      <div id="lyrics-track-info">
+        <div id="lyrics-track-title"></div>
+        <div id="lyrics-track-artist"></div>
+      </div>
+      <button id="lyrics-close" title="Закрыть"><svg viewBox="0 0 24 24"><path d="m12 13.4l-4.9 4.9q-.275.275-.7.275t-.7-.275t-.275-.7t.275-.7l4.9-4.9l-4.9-4.9q-.275-.275-.275-.7t.275-.7t.7-.275t.7.275l4.9 4.9l4.9-4.9q.275-.275.7-.275t.7.275t.275.7t-.275.7L13.4 12l4.9 4.9q.275.275.275.7t-.275.7t-.7.275t-.7-.275z"/></svg></button>
+    </div>
+    <div id="lyrics-body">
+      <div id="lyrics-status"></div>
+      <div id="lyrics-lines"></div>
+    </div>
+  </div>
+
   <!-- Полноэкранный Now Playing -->
   <div id="now-playing-full" class="hidden">
     <div id="cover-bg"></div>
@@ -397,6 +413,7 @@
   <script src="views/artist.js"></script>
   <script src="views/search.js"></script>
   <script src="views/track.js"></script>
+  <script src="views/lyrics.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
