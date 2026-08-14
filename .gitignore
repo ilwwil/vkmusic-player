@@ -12,3 +12,9 @@ npm-debug.log*
 # OS cruft
 Thumbs.db
 .DS_Store
+
+# Secrets — never commit
+.env
+
+# Vendored third-party binaries — not project source
+vendor/
