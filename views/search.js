@@ -37,9 +37,38 @@ window.SearchView = (function () {
         ['keydown', 'keypress', 'keyup'].forEach(type =>
           input.dispatchEvent(new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true })));
         const start = Date.now();
+        let corrected = false;
         while (Date.now() - start < 6000) {
           await new Promise(r => setTimeout(r, 200));
-          const rows = document.querySelectorAll('[data-testid="AudioCatalog_SectionAllTracks"] [data-testid="MusicTrackRow"]');
+          // Иногда VK после Enter уводит не на /audio?q=..., а на
+          // /audios<id>?q=...&section=all (похоже на роут "своя страница
+          // аудиозаписей") — там AudioCatalog_SectionAllTracks не рендерится
+          // вовсе, и без исправления запрос вечно таймаутился. Возвращаем на
+          // каталог хлебной крошкой один раз и продолжаем ждать в том же окне.
+          if (!corrected && /^\\/audios\\d+/.test(location.pathname)) {
+            corrected = true;
+            // На /audios<id> нет хлебной крошки (проверено вживую) — но вкладка
+            // "Все" каталога там есть и рабочая, ведёт SPA-переходом на /audio.
+            const nav = document.querySelector('[data-testid="AudioCatalog_Tabs_Tab_all"]')
+              || document.querySelector('a[data-testid="breadcrumb"]');
+            if (nav) {
+              nav.click();
+              await new Promise(r => setTimeout(r, 400)); // переход сбрасывает q= — вводим запрос заново
+              const input2 = document.querySelector('[data-testid="search_audio_input"]');
+              if (input2) {
+                setter.call(input2, query);
+                input2.dispatchEvent(new Event('input', { bubbles: true }));
+                await new Promise(r => setTimeout(r, 250));
+                input2.focus();
+                ['keydown', 'keypress', 'keyup'].forEach(type =>
+                  input2.dispatchEvent(new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true })));
+              }
+            }
+            continue;
+          }
+          const allHeader = document.querySelector('[data-testid="AudioCatalog_BlockHeaderAllTracks"]');
+          const allSec = allHeader ? allHeader.closest('section') : null;
+          const rows = allSec ? allSec.querySelectorAll('[data-testid="MusicTrackRow"]') : [];
           if (queryFromUrl() === query && rows.length) return true;
         }
         return false;
@@ -73,7 +102,13 @@ window.SearchView = (function () {
         return sec ? sec.querySelectorAll('[data-testid="MusicTrackRow"]') : [];
       }
       function allTracksRows() {
-        return document.querySelectorAll('[data-testid="AudioCatalog_SectionAllTracks"] [data-testid="MusicTrackRow"]');
+        // Как и у "Моих треков" — у секции "Все треки" тоже нет отдельного
+        // testid-контейнера, только заголовок AudioCatalog_BlockHeaderAllTracks,
+        // строки лежат в его ближайшем <section> (проверено вживую, VK сменил
+        // разметку — раньше был AudioCatalog_SectionAllTracks).
+        const header = document.querySelector('[data-testid="AudioCatalog_BlockHeaderAllTracks"]');
+        const sec = header ? header.closest('section') : null;
+        return sec ? sec.querySelectorAll('[data-testid="MusicTrackRow"]') : [];
       }
       // Обложки альбомов — background-image, иногда на вложенном элементе
       function coverOf(item) {

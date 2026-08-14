@@ -115,6 +115,7 @@ window.Shared = (function () {
   function basePageReadyScript() {
     return `
       !/[?&](block|q)=/.test(location.href) &&
+      !/^\\/audios\\d+/.test(location.pathname) &&
       !!document.querySelector('[data-testid="AudioCatalog_Tabs_Tab_all"]')
     `;
   }
@@ -132,6 +133,13 @@ window.Shared = (function () {
         }
         const crumb = document.querySelector('a[data-testid="breadcrumb"]');
         if (crumb) { crumb.click(); return 'crumb'; }
+        // /audios<id> (страница "своих" аудиозаписей, куда VK иногда открывает
+        // /audio по умолчанию) — хлебной крошки там нет, зато есть рабочая
+        // вкладка "Все", SPA-переходом уводящая на обычный каталог /audio.
+        if (/^\\/audios\\d+/.test(location.pathname)) {
+          const tab = document.querySelector('[data-testid="AudioCatalog_Tabs_Tab_all"]');
+          if (tab) { tab.click(); return 'tab-all'; }
+        }
         return 'none';
       })();
     `;
