@@ -1,6 +1,6 @@
 {
   "name": "vk-music-player",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Неофициальный десктопный плеер-обёртка для VK Музыки",
   "main": "main.js",
   "scripts": {
@@ -23,7 +23,11 @@
     "files": [
       "**/*",
       "!README.md",
-      "!test/**"
+      "!test/**",
+      "!vendor/**",
+      "!.env",
+      "!TODO.md",
+      "!*.md"
     ]
   }
 }
