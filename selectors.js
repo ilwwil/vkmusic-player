@@ -82,6 +82,11 @@ window.VK_SELECTORS = {
   broadcastButton: [
     '[data-testid="ToggleCurrentTargets"]'
   ],
+  // Кнопка "запустить микс похожих" — появляется в верхнем плеере после
+  // клика по openSimilarButton (плеер переходит в режим сниппета похожих)
+  playMixButton: [
+    '[data-testid="PlayMix"]'
+  ],
   shareButton: [
     '[data-testid="MusicAudio_Share"]'
   ],

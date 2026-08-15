@@ -251,7 +251,7 @@ function clickScript(kind) {
     playpause: 'playPauseButton', next: 'nextButton', prev: 'prevButton',
     shuffle: 'shuffleButton', repeat: 'repeatButton', like: 'likeButton',
     dislike: 'dislikeButton', similar: 'openSimilarButton', lyrics: 'openLyricsButton',
-    broadcast: 'broadcastButton', share: 'shareButton', mute: 'muteButton'
+    share: 'shareButton', mute: 'muteButton'
   };
   return `
     (function() {
@@ -262,6 +262,52 @@ function clickScript(kind) {
       return !!el;
     })();
   `;
+}
+
+// ---------- "Похожие" — запуск микса похожих треков ----------
+// Простой клик по кнопке VK лишь переключает верхний плеер в режим "похожих"
+// (появляется кнопка PlayMix) — сам по себе для пользователя это ничего не
+// делает, VK ведь скрыт. Докликиваем PlayMix: VK запускает микс похожих на
+// текущий трек. Оба клика обычные (el.click()), доверенных не требуется —
+// проверено вживую при полностью скрытом webview.
+function playSimilarMixScript() {
+  return `
+    (async function() {
+      ${pickHelper()}
+      const sel = ${JSON.stringify(SELECTORS)};
+      function waitFor(fn, timeoutMs) {
+        return new Promise(resolve => {
+          const start = Date.now();
+          (function poll() {
+            const el = fn();
+            if (el) return resolve(el);
+            if (Date.now() - start > timeoutMs) return resolve(null);
+            setTimeout(poll, 100);
+          })();
+        });
+      }
+      let playMix = pick(sel.playMixButton);
+      if (!playMix) {
+        const open = pick(sel.openSimilarButton);
+        if (!open) return JSON.stringify({ ok: false, reason: 'similar-button-not-found' });
+        open.click();
+        playMix = await waitFor(() => pick(sel.playMixButton), 4000);
+        if (!playMix) return JSON.stringify({ ok: false, reason: 'playmix-not-found' });
+      }
+      playMix.click();
+      return JSON.stringify({ ok: true });
+    })();
+  `;
+}
+
+async function playSimilarMix() {
+  try {
+    const raw = await webview.executeJavaScript(playSimilarMixScript());
+    const res = JSON.parse(raw);
+    if (!res.ok) console.warn('[VK Player] similar mix failed:', res.reason);
+  } catch (err) {
+    console.error('[VK Player] similar mix error:', err);
+  }
 }
 
 // ---------- "Поделиться" — копирование ссылки на трек ----------
@@ -716,6 +762,9 @@ document.querySelectorAll('[data-action]').forEach(btn => {
     // headless-клик по кнопке VK (у которой нет видимого эффекта в нашем UI)
     if (btn.dataset.action === 'lyrics') { window.LyricsView.toggle(); return; }
     if (btn.dataset.action === 'share') { shareTrack(); return; }
+    // Голый клик по кнопке VK "похожие" лишь открывает невидимую панель —
+    // наш вариант сразу запускает микс похожих (см. playSimilarMix)
+    if (btn.dataset.action === 'similar') { playSimilarMix(); return; }
     sendCommand(btn.dataset.action);
   });
 });
