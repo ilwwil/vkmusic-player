@@ -52,10 +52,33 @@ window.MyMusicView = (function () {
   // 2) после паузы на монтирование ищем уже появившуюся кнопку и кликаем по
   // ней (тоже доверенным кликом — раз уж кнопка требует hover, вероятно, того
   // же трастового окружения ждёт и клик).
+  // VK иногда сам возвращает каталог на вкладку "Главная" между нашими
+  // действиями (не только сразу после навигации, как чинит ensureBasePage) —
+  // тогда AudioCatalog_SectionTracks пропадает из DOM и любое действие над
+  // строкой падает с row-not-found. Переселекчиваем "Все" при необходимости,
+  // как уже делает scrapeMyMusicScript, и здесь тоже — на каждый вызов.
   function rowHoverPointScript(index) {
     return `
-      (function() {
+      (async function() {
+        ${pickHelper()}
+        const sel = ${JSON.stringify(SELECTORS)};
+        function waitFor(fn, timeoutMs) {
+          return new Promise(resolve => {
+            const start = Date.now();
+            (function poll() {
+              const el = fn();
+              if (el) return resolve(el);
+              if (Date.now() - start > timeoutMs) return resolve(null);
+              setTimeout(poll, 100);
+            })();
+          });
+        }
         try {
+          const tab = pick(sel.catalogTabAllMusic);
+          if (tab && tab.getAttribute('aria-selected') !== 'true') {
+            tab.click();
+            await waitFor(() => document.querySelector('[data-testid="AudioCatalog_SectionTracks"]'), 2000);
+          }
           const rows = document.querySelectorAll('[data-testid="AudioCatalog_SectionTracks"] [data-testid="MusicTrackRow"]');
           const row = rows[${index}];
           if (!row) return JSON.stringify({ ok: false, reason: 'row-not-found' });
@@ -70,14 +93,30 @@ window.MyMusicView = (function () {
   }
 
   function rowActionButtonScript(index, action) {
-    const testid = action === 'dislike' ? 'MusicAudio_ToggleDislike' : 'MusicAudio_ToggleOwning';
+    const testid = action === 'dislike' ? 'MusicAudio_ToggleDislike'
+      : action === 'menu' ? 'MusicAudio_MenuButton'
+      : 'MusicAudio_ToggleOwning';
     return `
-      (function() {
+      (async function() {
+        function waitFor(fn, timeoutMs) {
+          return new Promise(resolve => {
+            const start = Date.now();
+            (function poll() {
+              const el = fn();
+              if (el) return resolve(el);
+              if (Date.now() - start > timeoutMs) return resolve(null);
+              setTimeout(poll, 80);
+            })();
+          });
+        }
         try {
           const rows = document.querySelectorAll('[data-testid="AudioCatalog_SectionTracks"] [data-testid="MusicTrackRow"]');
           const row = rows[${index}];
           if (!row) return JSON.stringify({ ok: false, reason: 'row-not-found' });
-          const btn = row.querySelector('[data-testid="${testid}"]');
+          // Кнопки монтируются в DOM только после реального hover (см.
+          // rowHoverPointScript) — не всегда успевают за фиксированную паузу
+          // на стороне хоста, особенно когда их несколько (dislike/remove/меню).
+          const btn = await waitFor(() => row.querySelector('[data-testid="${testid}"]'), 1500);
           if (!btn) return JSON.stringify({ ok: false, reason: 'action-button-not-found' });
           const r = btn.getBoundingClientRect();
           return JSON.stringify({ ok: true, x: r.left + r.width / 2, y: r.top + r.height / 2 });
@@ -86,6 +125,154 @@ window.MyMusicView = (function () {
         }
       })();
     `;
+  }
+
+  // ---------- "Добавить в плейлист" ----------
+  // Кнопка "..." строки открывает меню VK с пунктами-плейлистами (обычный
+  // toggle add/remove на каждый — VK НЕ показывает в этом компактном списке,
+  // уже добавлен трек или нет, проверено вживую). Читаем список пунктов и
+  // рисуем свой попап, клик по пункту доверенно кликает соответствующий VK.
+  function scrapePlaylistMenuItemsScript() {
+    return `
+      (function() {
+        function waitFor(fn, timeoutMs) {
+          return new Promise(resolve => {
+            const start = Date.now();
+            (function poll() {
+              const el = fn();
+              if (el) return resolve(el);
+              if (Date.now() - start > timeoutMs) return resolve(null);
+              setTimeout(poll, 100);
+            })();
+          });
+        }
+        return waitFor(() => {
+          const items = document.querySelectorAll('[data-testid="AudioActionSheet_Item_MusicTrackCell_TogglePlaylistOwning"]');
+          return items.length ? items : null;
+        }, 2500).then(items => {
+          if (!items) return JSON.stringify({ ok: false, reason: 'menu-not-opened' });
+          return JSON.stringify({ ok: true, names: Array.from(items).map(it => it.textContent.trim()) });
+        });
+      })();
+    `;
+  }
+
+  function clickPlaylistMenuItemScript(itemIndex) {
+    return `
+      (function() {
+        const items = document.querySelectorAll('[data-testid="AudioActionSheet_Item_MusicTrackCell_TogglePlaylistOwning"]');
+        const item = items[${itemIndex}];
+        if (!item) return JSON.stringify({ ok: false, reason: 'item-not-found' });
+        const r = item.getBoundingClientRect();
+        return JSON.stringify({ ok: true, x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      })();
+    `;
+  }
+
+  // Меню — action sheet без отдельной кнопки закрытия; после выбора пункта
+  // VK закрывает его сам, а вот при отмене (попап закрыт без выбора) нужно
+  // закрыть вручную. Ни клик по фону, ни доверенный Escape не сработали
+  // (проверено вживую) — а вот повторный клик по той же кнопке "..." честно
+  // работает как тоггл, если дать ему время (без задержки промахивался, из-за
+  // чего раньше казалось, что "не работает"). ВАЖНО: клик "куда попало" вне
+  // меню опасен — например, координаты около левого верхнего угла страницы
+  // задевают логотип VK и уводят со страницы (поймано вживую) — поэтому здесь
+  // только клик по заведомо своей же кнопке, никаких блужданий по экрану.
+  async function closePlaylistMenu(index) {
+    const btnRaw = await webview.executeJavaScript(rowActionButtonScript(index, 'menu')).catch(() => null);
+    const btnInfo = btnRaw ? JSON.parse(btnRaw) : null;
+    if (!btnInfo || !btnInfo.ok) return;
+    sendTrustedClick(Math.round(btnInfo.x), Math.round(btnInfo.y));
+    await wait(700);
+  }
+
+  const playlistPopupEl = document.createElement('div');
+  playlistPopupEl.className = 'playlist-add-popup hidden';
+  document.body.appendChild(playlistPopupEl);
+  function hidePlaylistPopup() {
+    playlistPopupEl.classList.add('hidden');
+    playlistPopupEl.innerHTML = '';
+  }
+  // Открытие/закрытие меню плейлистов гоняет несколько последовательных
+  // executeJavaScript-вызовов в тот же webview — если пользователь успевает
+  // кликнуть по другой строке, пока предыдущее закрытие ещё не доехало,
+  // вызовы перемешиваются и путают состояние VK (row-not-found и тишина
+  // вместо ошибки). Все операции с меню идут через одну очередь, строго
+  // последовательно.
+  let playlistOpQueue = Promise.resolve();
+  function queuePlaylistOp(fn) {
+    const run = playlistOpQueue.then(fn, fn);
+    playlistOpQueue = run.catch(() => {});
+    return run;
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!playlistPopupEl.classList.contains('hidden') && !playlistPopupEl.contains(e.target)) {
+      const wasOpenIndex = playlistPopupEl.dataset.index;
+      hidePlaylistPopup();
+      if (wasOpenIndex !== undefined) queuePlaylistOp(() => closePlaylistMenu(Number(wasOpenIndex)));
+    }
+  });
+
+  async function runAddToPlaylist(index, anchorBtn) {
+    // Кнопки строк вызывают stopPropagation() — клик по кнопке ДРУГОЙ строки,
+    // пока уже открыт чей-то попап, не долетает до document-слушателя "клик
+    // снаружи", и старое меню VK так и остаётся открытым. Закрываем явно.
+    if (!playlistPopupEl.classList.contains('hidden')) {
+      const prevIndex = playlistPopupEl.dataset.index;
+      hidePlaylistPopup();
+      if (prevIndex !== undefined && Number(prevIndex) !== index) await closePlaylistMenu(Number(prevIndex));
+    }
+    showCurtain('Открываю плейлисты…');
+    const manual = beginAutomation();
+    await wait(80);
+    try {
+      if (!(await ensureBasePage())) { mymusicStatusEl.textContent = 'Не удалось: vk-page-not-ready'; return; }
+      const hoverRaw = await webview.executeJavaScript(rowHoverPointScript(index));
+      const hover = JSON.parse(hoverRaw);
+      if (!hover.ok) { mymusicStatusEl.textContent = 'Не удалось: ' + hover.reason; return; }
+      sendTrustedHover(Math.round(hover.x), Math.round(hover.y));
+      await wait(250);
+      const btnRaw = await webview.executeJavaScript(rowActionButtonScript(index, 'menu'));
+      const btnInfo = JSON.parse(btnRaw);
+      if (!btnInfo.ok) { mymusicStatusEl.textContent = 'Не удалось: ' + btnInfo.reason; return; }
+      sendTrustedClick(Math.round(btnInfo.x), Math.round(btnInfo.y));
+      const itemsRaw = await webview.executeJavaScript(scrapePlaylistMenuItemsScript());
+      const itemsRes = JSON.parse(itemsRaw);
+      if (!itemsRes.ok || !itemsRes.names.length) {
+        mymusicStatusEl.textContent = 'Нет доступных плейлистов';
+        await closePlaylistMenu(index);
+        return;
+      }
+      const rect = anchorBtn.getBoundingClientRect();
+      playlistPopupEl.innerHTML = '';
+      playlistPopupEl.dataset.index = index;
+      itemsRes.names.forEach((name, itemIndex) => {
+        const row = document.createElement('button');
+        row.className = 'playlist-add-popup-item';
+        row.textContent = name;
+        row.addEventListener('click', async () => {
+          hidePlaylistPopup();
+          const clickRaw = await webview.executeJavaScript(clickPlaylistMenuItemScript(itemIndex));
+          const clickRes = JSON.parse(clickRaw);
+          if (clickRes.ok) {
+            sendTrustedClick(Math.round(clickRes.x), Math.round(clickRes.y));
+            mymusicStatusEl.textContent = 'Готово: «' + name + '»';
+          } else {
+            mymusicStatusEl.textContent = 'Не удалось: ' + clickRes.reason;
+          }
+        });
+        playlistPopupEl.appendChild(row);
+      });
+      playlistPopupEl.style.left = Math.round(rect.left) + 'px';
+      playlistPopupEl.style.top = Math.round(rect.bottom + 4) + 'px';
+      playlistPopupEl.classList.remove('hidden');
+    } catch (err) {
+      mymusicStatusEl.textContent = 'Ошибка: ' + err.message;
+    } finally {
+      endAutomation(manual);
+      hideCurtain();
+    }
   }
 
   // Собираем плоский список треков "Моей музыки" из уже загруженного в DOM
@@ -292,13 +479,12 @@ window.MyMusicView = (function () {
 
   const MYMUSIC_DISLIKE_D = 'M3 16q-.8 0-1.4-.6T1 14v-2q0-.175.05-.375t.1-.375l3-7.05q.225-.5.75-.85T6 3h11v13l-6 5.95q-.375.375-.888.438t-.987-.188t-.7-.7t-.1-.925L9.45 16zm12-.85V5H6l-3 7v2h9l-1.35 5.5zM20 3q.825 0 1.413.588T22 5v9q0 .825-.587 1.413T20 16h-3v-2h3V5h-3V3zm-5 2v10.15z';
   const MYMUSIC_REMOVE_D = 'm12 13.4l-4.9 4.9q-.275.275-.7.275t-.7-.275t-.275-.7t.275-.7l4.9-4.9l-4.9-4.9q-.275-.275-.275-.7t.275-.7t.7-.275t.7.275l4.9 4.9l4.9-4.9q.275-.275.7-.275t.7.275t.275.7t-.275.7L13.4 12l4.9 4.9q.275.275.275.7t-.275.7t-.7.275t-.7-.275z';
+  const MYMUSIC_PLAYLIST_ADD_D = 'M15 19v-2h4v-4h2v4h4v2h-4v4h-2v-4zm-14 2v-2h10v2zm0-6v-2h14v2zm0-6V7h14v2z';
 
   // Кнопки при наведении у VK на строке трека (data-testid="audiorow-actions"):
   // "Открыть сниппет" (пропускаем по просьбе), "Не нравится", "Удалить из моей
-  // музыки", "Открыть меню". Меню пока не делаем — оно открывает выпадающий
-  // список внутри скрытого VK, которым нельзя реально пользоваться, пока VK не
-  // показан целиком (в отличие от play, это не разовое действие, а список,
-  // который надо разглядывать и кликать по конкретному пункту).
+  // музыки", "Открыть меню" (плейлисты — см. runAddToPlaylist выше: читаем
+  // список пунктов и рисуем свой попап, а не показываем скрытый VK).
   function formatMyMusicRow(track) {
     const row = document.createElement('div');
     row.className = 'mymusic-row';
@@ -312,13 +498,21 @@ window.MyMusicView = (function () {
       <div class="mymusic-row-actions">
         <button class="mymusic-row-action" data-row-action="dislike" title="Не нравится"><svg viewBox="0 0 24 24"><path d="${MYMUSIC_DISLIKE_D}"/></svg></button>
         <button class="mymusic-row-action" data-row-action="owning" title="Убрать из моей музыки"><svg viewBox="0 0 24 24"><path d="${MYMUSIC_REMOVE_D}"/></svg></button>
+        <button class="mymusic-row-action" data-row-action="playlist" title="Добавить в плейлист"><svg viewBox="0 0 24 24"><path d="${MYMUSIC_PLAYLIST_ADD_D}"/></svg></button>
       </div>
       <div class="mymusic-row-duration"></div>
     `;
     row.querySelector('.mymusic-row-title').textContent = track.title || 'Без названия';
     row.querySelector('.mymusic-row-artist').textContent = track.artist;
     row.querySelector('.mymusic-row-duration').textContent = track.duration;
-    row.querySelectorAll('[data-row-action]').forEach(btn => {
+    const playlistBtn = row.querySelector('[data-row-action="playlist"]');
+    playlistBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (playlistBtn.classList.contains('loading')) return;
+      playlistBtn.classList.add('loading');
+      queuePlaylistOp(() => runAddToPlaylist(track.index, playlistBtn)).finally(() => playlistBtn.classList.remove('loading'));
+    });
+    row.querySelectorAll('[data-row-action="dislike"], [data-row-action="owning"]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (btn.classList.contains('loading')) return;

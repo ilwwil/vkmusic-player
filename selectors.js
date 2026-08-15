@@ -82,6 +82,12 @@ window.VK_SELECTORS = {
   broadcastButton: [
     '[data-testid="ToggleCurrentTargets"]'
   ],
+  // Кнопка "..." на строке трека (audiorow-actions) — открывает выпадающее
+  // меню с пунктами добавления в плейлист (см. rowActionButtonScript в
+  // views/mymusic.js)
+  rowMenuButton: [
+    '[data-testid="MusicAudio_MenuButton"]'
+  ],
   // Кнопка "запустить микс похожих" — появляется в верхнем плеере после
   // клика по openSimilarButton (плеер переходит в режим сниппета похожих)
   playMixButton: [
