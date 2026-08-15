@@ -67,6 +67,17 @@ test('beginAutomation/endAutomation toggle vk-automating unless the user already
   Shared.endAutomation(manual1);
   assert.equal(cl.contains('vk-automating'), false);
 
+  // Пересекающиеся вызовы (например, громкость крутят, пока ещё не
+  // закончилось добавление в плейлист) — снятие класса первой завершившейся
+  // операцией не должно рвать видимость для второй, всё ещё активной.
+  const outerManual = Shared.beginAutomation();
+  const innerManual = Shared.beginAutomation();
+  assert.equal(cl.contains('vk-automating'), true);
+  Shared.endAutomation(innerManual); // внутренняя операция закончилась первой
+  assert.equal(cl.contains('vk-automating'), true, 'class must stay while the outer automation is still active');
+  Shared.endAutomation(outerManual);
+  assert.equal(cl.contains('vk-automating'), false);
+
   // Debug-режим "Показать VK": beginAutomation не должен трогать класс, а
   // endAutomation(true) не должен его снимать (не он его ставил).
   cl.add('vk-visible');

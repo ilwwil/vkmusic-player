@@ -93,13 +93,26 @@ window.Shared = (function () {
   // работает с webview, целиком выведенным за пределы окна).
   // Если пользователь сам держит открытым debug-режим "Показать VK"
   // (contentEl.vk-visible), не трогаем его — оставляем видимым на экране.
+  // Счётчик, а не просто toggle: если пересекаются два вызова (например,
+  // пользователь крутит громкость, пока ещё не закончилось добавление в
+  // плейлист), снятие класса первой завершившейся операцией не должно рвать
+  // видимость для второй, всё ещё активной — иначе её доверенный клик тихо
+  // промахивается мимо скрытого webview. Та же схема, что у showCurtain/
+  // hideCurtain (curtainCount) — раньше здесь была просто пара add/remove.
+  let automationCount = 0;
   function beginAutomation() {
     const manual = contentEl.classList.contains('vk-visible');
-    if (!manual) contentEl.classList.add('vk-automating');
+    if (!manual) {
+      automationCount++;
+      contentEl.classList.add('vk-automating');
+    }
     return manual;
   }
   function endAutomation(manual) {
-    if (!manual) contentEl.classList.remove('vk-automating');
+    if (!manual) {
+      automationCount = Math.max(0, automationCount - 1);
+      if (automationCount === 0) contentEl.classList.remove('vk-automating');
+    }
   }
 
   // Разделы "Моя музыка" и "Поиск" рассчитывают, что VK стоит на базовой
