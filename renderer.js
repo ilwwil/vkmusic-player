@@ -616,7 +616,10 @@ function updateUI(state) {
 
   setActive('.btn-shuffle', state.shuffleOn);
   setActive('.btn-repeat', state.repeatState && state.repeatState !== 'none');
-  setIconPath('.btn-repeat', state.repeatState === 'one' ? REPEAT_ONE_D : REPEAT_D);
+  // VK-состояния: none -> queue (повтор плейлиста) -> audio (повтор трека) ->
+  // none (проверено вживую) — раньше тут сравнивалось с несуществующим 'one',
+  // поэтому иконка "повторить один трек" никогда не подставлялась.
+  setIconPath('.btn-repeat', state.repeatState === 'audio' ? REPEAT_ONE_D : REPEAT_D);
   setActive('.btn-like', state.liked);
   setIconPath('.btn-like', state.liked ? LIKE_FILLED_D : LIKE_OUTLINE_D);
   setActive('.btn-dislike', state.disliked);
