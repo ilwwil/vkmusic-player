@@ -85,6 +85,13 @@ window.VK_SELECTORS = {
   shareButton: [
     '[data-testid="MusicAudio_Share"]'
   ],
+  // Модалка "Отправка аудиозаписи", открывается доверенным кликом по shareButton
+  shareLinkInput: [
+    '[data-testid="share_item_link_input"]'
+  ],
+  shareModalClose: [
+    '[data-testid="modal-close-button"]'
+  ],
   // кнопка "выключить/включить звук" рядом с ползунком громкости
   muteButton: [
     '[aria-label="Выключить звук"], [aria-label="Включить звук"]'

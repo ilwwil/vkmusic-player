@@ -25,7 +25,10 @@ test('VK_SELECTORS is populated with non-empty selector lists', () => {
 test('key selectors relied on elsewhere in the app are present', () => {
   // Эти ключи читаются напрямую по имени в views/*.js и renderer.js — если
   // кто-то их переименует в selectors.js, автоматизация тихо сломается.
-  for (const key of ['trackTitle', 'playPauseButton', 'catalogTabAllMusic', 'progressSlider']) {
+  for (const key of [
+    'trackTitle', 'playPauseButton', 'catalogTabAllMusic', 'progressSlider',
+    'shareButton', 'shareLinkInput', 'shareModalClose', 'volumeTrack', 'volumeSlider'
+  ]) {
     assert.ok(SELECTORS[key], `missing expected selector key: ${key}`);
   }
 });

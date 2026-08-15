@@ -264,6 +264,112 @@ function clickScript(kind) {
   `;
 }
 
+// ---------- "Поделиться" — копирование ссылки на трек ----------
+// Кнопка раньше просто слала el.click() по кнопке VK внутри скрытого webview:
+// модалка "Отправка аудиозаписи" честно открывалась там же, но невидимо для
+// пользователя, а ссылка никуда не копировалась — кнопка выглядела нерабочей.
+// Теперь: доверенный клик по кнопке (как и OpenLyrics, реагирует только на
+// него), читаем поле с готовой ссылкой из открывшейся модалки, копируем в
+// системный буфер и закрываем модалку обратно.
+function findShareButtonScript() {
+  return `
+    (() => {
+      ${pickHelper()}
+      const sel = ${JSON.stringify(SELECTORS)};
+      const b = pick(sel.shareButton);
+      if (!b) return JSON.stringify({ found: false });
+      b.scrollIntoView({ block: 'center' });
+      const r = b.getBoundingClientRect();
+      return JSON.stringify({ found: true, x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    })();
+  `;
+}
+
+function readShareLinkScript() {
+  return `
+    (function() {
+      ${pickHelper()}
+      const sel = ${JSON.stringify(SELECTORS)};
+      // share_item_link_input у VK — это <span>-обёртка поля, сам <input> с
+      // готовой ссылкой лежит внутри без собственного testid (проверено вживую).
+      const wrap = pick(sel.shareLinkInput);
+      const input = wrap ? wrap.querySelector('input') : null;
+      return JSON.stringify({ link: input ? input.value : null });
+    })();
+  `;
+}
+
+function closeShareModalScript() {
+  return `
+    (function() {
+      ${pickHelper()}
+      const sel = ${JSON.stringify(SELECTORS)};
+      const btn = pick(sel.shareModalClose);
+      if (btn) btn.click();
+      return JSON.stringify({ ok: !!btn });
+    })();
+  `;
+}
+
+async function copyToClipboard(text) {
+  // После доверенного клика по кнопке в webview фокус документа уходит туда
+  // (это отдельный процесс/гость) — Clipboard API молча падает с "Document is
+  // not focused", если не вернуть фокус на своё окно перед записью.
+  window.focus();
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    // Запасной путь — на случай, если Clipboard API недоступен в этом контексте
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }
+}
+
+function flashShareFeedback(ok) {
+  document.querySelectorAll('.btn-share').forEach((btn) => {
+    const prevTitle = btn.title;
+    btn.title = ok ? 'Ссылка скопирована' : 'Не удалось получить ссылку';
+    btn.classList.toggle('active', ok);
+    setTimeout(() => { btn.title = prevTitle; btn.classList.remove('active'); }, 1500);
+  });
+}
+
+async function shareTrack() {
+  const manual = beginAutomation();
+  try {
+    const raw = await webview.executeJavaScript(findShareButtonScript());
+    const coords = JSON.parse(raw);
+    if (!coords.found) { flashShareFeedback(false); return; }
+    sendTrustedClick(Math.round(coords.x), Math.round(coords.y));
+    // Модалка анимированно выезжает, а ссылку VK подставляет в поле не сразу
+    // (видно по данным — иногда пусто ещё и через 500мс) — поллим вместо
+    // одного фиксированного ожидания.
+    let link = null;
+    const deadline = Date.now() + 3000;
+    while (!link && Date.now() < deadline) {
+      await wait(200);
+      const linkRaw = await webview.executeJavaScript(readShareLinkScript());
+      link = JSON.parse(linkRaw).link || null;
+    }
+    await webview.executeJavaScript(closeShareModalScript()).catch(() => {});
+    flashShareFeedback(!!link && await copyToClipboard(link));
+  } catch (err) {
+    console.error('[VK Player] share error:', err);
+    flashShareFeedback(false);
+  } finally {
+    endAutomation(manual);
+  }
+}
+
 function seekScript(ratio) {
   return `
     (function() {
@@ -312,6 +418,23 @@ function volumeSeekScript(ratio) {
       diag.rect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
       diag.method = 'input-event';
       return JSON.stringify(diag);
+    })();
+  `;
+}
+
+// Текущее значение слайдера громкости VK (0..100) — используется, чтобы
+// проверить, что доверенный клик реально долетел, а не просто разминулся по
+// таймингу (VK иногда не успевает обработать клик в отведённое окно ожидания).
+function volumeReadScript() {
+  return `
+    (function() {
+      ${pickHelper()}
+      const sel = ${JSON.stringify(SELECTORS)};
+      const audio = document.querySelectorAll('audio')[0];
+      if (audio) return String(Math.round(audio.volume * 100));
+      const slider = pick(sel.volumeSlider);
+      const v = slider ? slider.getAttribute('aria-valuenow') : null;
+      return v === null ? '' : String(Math.round(parseFloat(v)));
     })();
   `;
 }
@@ -589,6 +712,7 @@ document.querySelectorAll('[data-action]').forEach(btn => {
     // "Текст песни" — своя панель поверх скрейпленного текста VK, а не
     // headless-клик по кнопке VK (у которой нет видимого эффекта в нашем UI)
     if (btn.dataset.action === 'lyrics') { window.LyricsView.toggle(); return; }
+    if (btn.dataset.action === 'share') { shareTrack(); return; }
     sendCommand(btn.dataset.action);
   });
 });
@@ -643,6 +767,38 @@ setupSeek(document.getElementById('progress-scrubber'), document.getElementById(
 setupSeek(document.getElementById('progress-track-full'), document.getElementById('progress-fill-full'));
 
 // ---------- Громкость кликом/драгом по ползунку ----------
+// Один клик иногда не долетал: VK не всегда успевает обработать доверенный
+// клик за фиксированное окно ожидания, а быстрый скролл колёсиком запускал
+// несколько параллельных попыток, которые сбивали друг друга. Теперь у
+// применения громкости общий токен (актуальна только последняя попытка) и
+// проверка результата с одним повтором клика, если значение не сдвинулось.
+let volumeToken = 0;
+async function applyVolumeRatio(ratio) {
+  const myToken = ++volumeToken;
+  const manual = beginAutomation();
+  try {
+    const raw = await webview.executeJavaScript(volumeSeekScript(ratio));
+    const diag = JSON.parse(raw);
+    console.log('[VK Player] volume diag:', diag);
+    if (diag.method !== 'input-event' || !diag.rect) return;
+    const x = Math.round(diag.rect.left + diag.rect.width * ratio);
+    const y = Math.round(diag.rect.top + diag.rect.height / 2);
+    const target = Math.round(ratio * 100);
+    for (let attempt = 0; attempt < 2 && myToken === volumeToken; attempt++) {
+      await wait(attempt === 0 ? 80 : 200);
+      sendTrustedClick(x, y);
+      await wait(200);
+      const nowRaw = await webview.executeJavaScript(volumeReadScript()).catch(() => '');
+      const now = parseInt(nowRaw, 10);
+      if (!isNaN(now) && Math.abs(now - target) <= 5) break;
+    }
+  } catch (err) {
+    console.error('[VK Player] volume error:', err);
+  } finally {
+    endAutomation(manual);
+  }
+}
+
 function setupVolume(trackEl, fillEl) {
   function ratioFromEvent(e) {
     const rect = trackEl.getBoundingClientRect();
@@ -656,22 +812,7 @@ function setupVolume(trackEl, fillEl) {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     trackEl.classList.remove('seeking');
-    const ratio = ratioFromEvent(e);
-    const manual = beginAutomation();
-    webview.executeJavaScript(volumeSeekScript(ratio))
-      .then(async raw => {
-        const diag = JSON.parse(raw);
-        console.log('[VK Player] volume diag:', diag);
-        if (diag.method === 'input-event' && diag.rect) {
-          const x = Math.round(diag.rect.left + diag.rect.width * ratio);
-          const y = Math.round(diag.rect.top + diag.rect.height / 2);
-          await wait(80);
-          sendTrustedClick(x, y);
-          await wait(150);
-        }
-      })
-      .catch(err => console.error('[VK Player] volume error:', err))
-      .finally(() => endAutomation(manual));
+    applyVolumeRatio(ratioFromEvent(e));
     setTimeout(() => { volumeDragging = false; }, 400);
   }
   trackEl.addEventListener('mousedown', (e) => {
@@ -683,29 +824,13 @@ function setupVolume(trackEl, fillEl) {
   });
 
   // Колёсико над зоной громкости: шаг 5%
-  function applyVolume(ratio) {
-    const manual = beginAutomation();
-    webview.executeJavaScript(volumeSeekScript(ratio))
-      .then(async raw => {
-        const diag = JSON.parse(raw);
-        if (diag.method === 'input-event' && diag.rect) {
-          const x = Math.round(diag.rect.left + diag.rect.width * ratio);
-          const y = Math.round(diag.rect.top + diag.rect.height / 2);
-          await wait(80);
-          sendTrustedClick(x, y);
-          await wait(150);
-        }
-      })
-      .catch(() => {})
-      .finally(() => endAutomation(manual));
-  }
   const wheelZone = trackEl.parentElement; // #volume-control: кнопка mute + дорожка
   wheelZone.addEventListener('wheel', (e) => {
     e.preventDefault();
     const cur = parseFloat(fillEl.style.width) || 0;
     const next = Math.min(100, Math.max(0, cur + (e.deltaY < 0 ? 5 : -5)));
     fillEl.style.width = next + '%';
-    applyVolume(next / 100);
+    applyVolumeRatio(next / 100);
   }, { passive: false });
 }
 

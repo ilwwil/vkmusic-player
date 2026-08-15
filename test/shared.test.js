@@ -29,10 +29,26 @@ test('basePageReadyScript checks for a clean URL and the rendered catalog tab', 
   assert.match(script, /location\.href/);
 });
 
+test('basePageReadyScript rejects the /audios<id> route VK sometimes redirects to', () => {
+  // Регресс на баг: этот роут проходил старую проверку (нет block=/q= в URL,
+  // вкладки каталога тоже есть), из-за чего ensureBasePage() считал страницу
+  // готовой, хотя AudioCatalog_SectionAllTracks/поиск там не работают.
+  const script = Shared.basePageReadyScript();
+  assert.match(script, /\/\^\\\/audios\\d\+\//, 'must reject /audios<id> pathnames');
+});
+
 test('spaCleanupScript targets the search-clear and breadcrumb controls', () => {
   const script = Shared.spaCleanupScript();
   assert.match(script, /search_audio_clear/);
   assert.match(script, /data-testid="breadcrumb"/);
+});
+
+test('spaCleanupScript falls back to the "Все" tab on the /audios<id> route', () => {
+  // На /audios<id> нет хлебной крошки (проверено вживую) — без этого фолбэка
+  // ensureBasePage тупо гонял 6с SPA-очистку и уходил на полную перезагрузку.
+  const script = Shared.spaCleanupScript();
+  assert.match(script, /\/\^\\\/audios\\d\+\//);
+  assert.match(script, /AudioCatalog_Tabs_Tab_all/);
 });
 
 test('modalScrapeScript / closeModalScript reference the playlist modal', () => {
