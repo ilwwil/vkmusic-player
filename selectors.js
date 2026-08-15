@@ -121,6 +121,9 @@ window.VK_SELECTORS = {
   catalogTabAllMusic: [
     '[data-testid="AudioCatalog_Tabs_Tab_all"]'
   ],
+  updatesTab: [
+    '[data-testid="AudioCatalog_Tabs_Tab_updates"]'
+  ],
   // Кнопка "Слушать VK Микс" на вкладке "Главная"
   mixToggleButton: [
     '[data-testid="AudioStreamMix_TogglePlayingAction"]'

@@ -269,6 +269,7 @@ button.section-title:hover { color: rgba(255,255,255,0.7); }
 .mymusic-row-action svg { width: 16px; height: 16px; fill: currentColor; }
 .mymusic-row-action:hover { color: #fff; }
 .mymusic-row-action.loading { opacity: 0.4; pointer-events: none; }
+.mymusic-row-action.done { color: var(--accent); }
 
 /* Попап "Добавить в плейлист" — живёт в document.body (не внутри строки),
    позиционируется в пикселях от getBoundingClientRect() кнопки, поэтому fixed */

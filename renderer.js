@@ -43,6 +43,7 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
     if (btn.dataset.view === 'home') window.HomeView.loadHome();
     if (btn.dataset.view === 'mymusic') window.MyMusicView.loadMyMusic();
     if (btn.dataset.view === 'playlists') window.PlaylistsView.loadPlaylists();
+    if (btn.dataset.view === 'updates') window.UpdatesView.loadUpdates();
     if (btn.dataset.view === 'search') window.SearchView.focus();
     // При уходе из "Поиска" сбрасываем поиск в VK — иначе каталог остаётся в
     // режиме результатов и секция "Треки" моей библиотеки недоступна
